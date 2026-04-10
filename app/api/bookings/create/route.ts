@@ -13,7 +13,8 @@ function getClientIp(request: NextRequest) {
     }
   }
 
-  return request.ip || "unknown";
+  const forwarded = request.headers.get("x-forwarded-for");
+  return forwarded?.split(",")[0]?.trim() || "unknown";
 }
 
 export async function POST(request: NextRequest) {
