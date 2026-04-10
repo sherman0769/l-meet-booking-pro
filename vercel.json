@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/internal/sync-jobs/auto-retry",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}
