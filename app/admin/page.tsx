@@ -333,7 +333,7 @@ export default function AdminPage() {
           targetIds.has(item.id)
             ? {
                 ...item,
-                calendarEventId: eventId,
+                ...(eventId ? { calendarEventId: eventId } : {}),
                 calendarSyncStatus: "synced",
               }
             : item
