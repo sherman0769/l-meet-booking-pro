@@ -135,7 +135,7 @@ export async function rewriteBookingSlotsInTransaction(params: {
   await adminDb.runTransaction(async (transaction) => {
     for (const ref of newRefs) {
       const snap = await transaction.get(ref);
-      if (snap.exists() && !targetSlotIdSet.has(ref.id)) {
+      if (snap.exists && !targetSlotIdSet.has(ref.id)) {
         throw new Error("SLOT_ALREADY_BOOKED");
       }
     }
@@ -179,7 +179,7 @@ export async function createBookingSlotsInTransaction(params: {
   await adminDb.runTransaction(async (transaction) => {
     for (const ref of slotRefs) {
       const snap = await transaction.get(ref);
-      if (snap.exists()) {
+      if (snap.exists) {
         throw new Error("SLOT_ALREADY_BOOKED");
       }
     }
