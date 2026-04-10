@@ -300,6 +300,8 @@ export default function AdminPage() {
       });
 
       const result = await parseApiResult(response);
+      const eventId =
+        typeof result.eventId === "string" ? result.eventId : undefined;
 
       if (result.status === "validation_error") {
         alert(result.message || "補同步參數錯誤");
@@ -309,7 +311,7 @@ export default function AdminPage() {
       if (
         result.status === "error" ||
         result.status === "unauthorized" ||
-        !result?.eventId
+        !eventId
       ) {
         console.error("[calendar][admin-resync][failed]", {
           status: response.status,
@@ -331,7 +333,7 @@ export default function AdminPage() {
           targetIds.has(item.id)
             ? {
                 ...item,
-                calendarEventId: result.eventId,
+                calendarEventId: eventId,
                 calendarSyncStatus: "synced",
               }
             : item
