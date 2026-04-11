@@ -5,7 +5,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/server/firebase-admin";
 
 export type SyncJobAction = "create" | "update" | "delete" | "resync";
-export type SyncJobStatus = "pending" | "resolved";
+export type SyncJobStatus = "pending" | "resolved" | "dismissed";
 
 export type UpsertPendingSyncJobInput = {
   action: SyncJobAction;
@@ -172,6 +172,25 @@ export async function markSyncJobRetryFailed(params: {
       updatedAt: FieldValue.serverTimestamp(),
       resolvedAt: null,
       resolvedBy: null,
+    },
+    { merge: true }
+  );
+}
+
+export async function markSyncJobDismissed(params: {
+  jobId: string;
+  actor: string;
+  reason?: string;
+}) {
+  const { jobId, actor, reason } = params;
+
+  await adminDb.collection("sync_jobs").doc(jobId).set(
+    {
+      status: "dismissed" as SyncJobStatus,
+      updatedAt: FieldValue.serverTimestamp(),
+      resolvedAt: FieldValue.serverTimestamp(),
+      resolvedBy: actor,
+      ...(reason ? { dismissReason: reason } : {}),
     },
     { merge: true }
   );

@@ -155,6 +155,7 @@ export default function AdminPage() {
   const [pendingSyncJobs, setPendingSyncJobs] = useState<PendingSyncJob[]>([]);
   const [syncJobsLoading, setSyncJobsLoading] = useState(false);
   const [retryingSyncJobId, setRetryingSyncJobId] = useState<string | null>(null);
+  const [dismissingSyncJobId, setDismissingSyncJobId] = useState<string | null>(null);
 
   // 改期相關狀態
   const [editId, setEditId] = useState<string | null>(null);
@@ -475,6 +476,36 @@ export default function AdminPage() {
       alert("重試失敗");
     } finally {
       setRetryingSyncJobId(null);
+    }
+  };
+
+  const handleDismissSyncJob = async (job: PendingSyncJob) => {
+    setDismissingSyncJobId(job.id);
+    try {
+      const response = await fetch("/api/admin/sync-jobs/dismiss", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          jobId: job.id,
+        }),
+      });
+
+      const result = await parseApiResult(response);
+
+      if (result.status !== "success") {
+        alert(result.message || "忽略失敗");
+        return;
+      }
+
+      alert(result.message || "已忽略此待補償項目");
+      await fetchPendingSyncJobs();
+    } catch (error) {
+      console.error("忽略待補償項目失敗：", error);
+      alert("忽略失敗");
+    } finally {
+      setDismissingSyncJobId(null);
     }
   };
 
@@ -842,6 +873,13 @@ export default function AdminPage() {
                       {retryingSyncJobId === job.id ? "重試中..." : "重試"}
                     </button>
                   )}
+                  <button
+                    onClick={() => handleDismissSyncJob(job)}
+                    disabled={dismissingSyncJobId === job.id}
+                    className="mt-2 ml-2 px-3 py-1 rounded bg-gray-500 text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    {dismissingSyncJobId === job.id ? "忽略中..." : "忽略"}
+                  </button>
                 </div>
               ))}
             </div>
