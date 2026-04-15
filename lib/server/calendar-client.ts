@@ -1,4 +1,7 @@
+import "server-only";
+
 import { google } from "googleapis";
+import { getGoogleOauthConfig } from "@/lib/server/google-oauth-config";
 
 export type CreateCalendarBookingEventInput = {
   name: string;
@@ -24,23 +27,95 @@ export type UpdateCalendarBookingEventInput = {
   service: string;
 };
 
-export async function createCalendarBookingEvent(
-  input: CreateCalendarBookingEventInput
-) {
+type CalendarCredentials = {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+  refreshToken: string;
+  calendarId: string;
+};
+
+function isCompleteCredentials(value: Partial<CalendarCredentials> | null | undefined): value is CalendarCredentials {
+  return Boolean(
+    value?.clientId &&
+      value.clientSecret &&
+      value.redirectUri &&
+      value.refreshToken &&
+      value.calendarId
+  );
+}
+
+function getEnvCredentials(): CalendarCredentials | null {
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim() || "";
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim() || "";
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI?.trim() || "";
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN?.trim() || "";
+  const calendarId = process.env.GOOGLE_CALENDAR_ID?.trim() || "primary";
+
+  if (!isCompleteCredentials({ clientId, clientSecret, redirectUri, refreshToken, calendarId })) {
+    return null;
+  }
+
+  return {
+    clientId,
+    clientSecret,
+    redirectUri,
+    refreshToken,
+    calendarId,
+  };
+}
+
+async function resolveCalendarCredentials(): Promise<CalendarCredentials> {
+  const firestoreConfig = await getGoogleOauthConfig();
+
+  if (firestoreConfig) {
+    return {
+      clientId: firestoreConfig.clientId,
+      clientSecret: firestoreConfig.clientSecret,
+      redirectUri: firestoreConfig.redirectUri,
+      refreshToken: firestoreConfig.refreshToken,
+      calendarId: firestoreConfig.calendarId || "primary",
+    };
+  }
+
+  const envCredentials = getEnvCredentials();
+  if (envCredentials) {
+    return envCredentials;
+  }
+
+  throw new Error(
+    "Google OAuth config missing: neither Firestore system_config/google_oauth nor environment variables are complete"
+  );
+}
+
+async function createCalendarClient() {
+  const credentials = await resolveCalendarCredentials();
+
   const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI
+    credentials.clientId,
+    credentials.clientSecret,
+    credentials.redirectUri
   );
 
   oauth2Client.setCredentials({
-    refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+    refresh_token: credentials.refreshToken,
   });
 
   const calendar = google.calendar({ version: "v3", auth: oauth2Client });
 
+  return {
+    calendar,
+    calendarId: credentials.calendarId || "primary",
+  };
+}
+
+export async function createCalendarBookingEvent(
+  input: CreateCalendarBookingEventInput
+) {
+  const { calendar, calendarId } = await createCalendarClient();
+
   const response = await calendar.events.insert({
-    calendarId: process.env.GOOGLE_CALENDAR_ID || "primary",
+    calendarId,
     requestBody: {
       summary: `${input.service}｜${input.name}`,
       description: [
@@ -70,20 +145,10 @@ export async function createCalendarBookingEvent(
 export async function deleteCalendarBookingEvent(
   input: DeleteCalendarBookingEventInput
 ) {
-  const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI
-  );
-
-  oauth2Client.setCredentials({
-    refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
-  });
-
-  const calendar = google.calendar({ version: "v3", auth: oauth2Client });
+  const { calendar, calendarId } = await createCalendarClient();
 
   await calendar.events.delete({
-    calendarId: process.env.GOOGLE_CALENDAR_ID || "primary",
+    calendarId,
     eventId: input.eventId,
   });
 }
@@ -91,20 +156,10 @@ export async function deleteCalendarBookingEvent(
 export async function updateCalendarBookingEvent(
   input: UpdateCalendarBookingEventInput
 ) {
-  const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI
-  );
-
-  oauth2Client.setCredentials({
-    refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
-  });
-
-  const calendar = google.calendar({ version: "v3", auth: oauth2Client });
+  const { calendar, calendarId } = await createCalendarClient();
 
   await calendar.events.patch({
-    calendarId: process.env.GOOGLE_CALENDAR_ID || "primary",
+    calendarId,
     eventId: input.eventId,
     requestBody: {
       summary: `${input.service}｜${input.name}`,

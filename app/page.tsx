@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   collection,
@@ -76,6 +76,54 @@ const calculateRequiredSlots = (
   return slots;
 };
 
+type AvailabilityItem = {
+  date: string;
+  availableCount: number;
+  status: "available" | "limited" | "full";
+  firstAvailableTime: string;
+};
+
+const weekdayLabels = ["日", "一", "二", "三", "四", "五", "六"];
+
+const toLocalDateString = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const generateNextDays = (days: number) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return Array.from({ length: days }, (_, index) => {
+    const next = new Date(today);
+    next.setDate(today.getDate() + index);
+    return toLocalDateString(next);
+  });
+};
+
+const getAvailabilityStatus = (
+  availableCount: number
+): AvailabilityItem["status"] => {
+  if (availableCount === 0) return "full";
+  if (availableCount <= 2) return "limited";
+  return "available";
+};
+
+const formatDateWithWeekday = (dateString: string) => {
+  const [year, month, day] = dateString.split("-");
+  const parsedYear = Number(year);
+  const parsedMonth = Number(month);
+  const parsedDay = Number(day);
+
+  if (!parsedYear || !parsedMonth || !parsedDay) return dateString;
+
+  const date = new Date(parsedYear, parsedMonth - 1, parsedDay);
+  const weekday = weekdayLabels[date.getDay()];
+  return `${year}/${month}/${day}（週${weekday}）`;
+};
+
 export default function Home() {
   const router = useRouter();
   const services = ["健身", "AI課程", "咨詢", "顧問"];
@@ -95,6 +143,9 @@ export default function Home() {
   const [bookedTimes, setBookedTimes] = useState<string[]>([]);
   const [calendarBusyTimes, setCalendarBusyTimes] = useState<string[]>([]);
   const [serviceBuffers, setServiceBuffers] = useState<Record<string, number>>({});
+  const [availability30Days, setAvailability30Days] = useState<AvailabilityItem[]>([]);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const timeSectionRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const fetchBuffers = async () => {
@@ -356,6 +407,60 @@ export default function Home() {
     });
   };
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchAvailability30Days = async () => {
+      setAvailabilityLoading(true);
+      const next30Days = generateNextDays(30);
+      const targetLessons = Number(lessons);
+      const items: AvailabilityItem[] = [];
+
+      for (const targetDate of next30Days) {
+        try {
+          const selectable = await getSelectableTimesFor({
+            targetService: service,
+            targetDate,
+            targetLessons,
+          });
+
+          const availableCount = selectable.length;
+          items.push({
+            date: targetDate,
+            availableCount,
+            status: getAvailabilityStatus(availableCount),
+            firstAvailableTime: selectable[0] || "",
+          });
+        } catch (error) {
+          console.error("計算 30 天可用性失敗：", targetDate, error);
+          items.push({
+            date: targetDate,
+            availableCount: 0,
+            status: "full",
+            firstAvailableTime: "",
+          });
+        }
+      }
+
+      if (!cancelled) {
+        setAvailability30Days(items);
+        setAvailabilityLoading(false);
+      }
+    };
+
+    fetchAvailability30Days().catch((error) => {
+      console.error("讀取 30 天可用性失敗：", error);
+      if (!cancelled) {
+        setAvailability30Days([]);
+        setAvailabilityLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [service, lessons]);
+
   const getNextDaysRecommendations = async ({
     service,
     startDate,
@@ -549,22 +654,39 @@ export default function Home() {
             occupiedSlotsPreview[occupiedSlotsPreview.length - 1],
         }
       : null;
+  const availabilityStatusText: Record<AvailabilityItem["status"], string> = {
+    available: "可預約",
+    limited: "少量",
+    full: "已滿",
+  };
+  const selectedAvailability = availability30Days.find((item) => item.date === date);
+  const isDevelopment = process.env.NODE_ENV !== "production";
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-6 bg-gray-50">
-      <div className="w-full max-w-md bg-white shadow-md rounded-2xl p-6">
-        <h1 className="text-3xl font-bold mb-2 text-center">L_meet booking pro</h1>
-        <p className="text-center text-gray-600 mb-6">健身預約系統</p>
+    <main className="min-h-screen bg-gray-50 p-4 sm:p-6">
+      <div className="mx-auto w-full max-w-md rounded-2xl bg-white p-4 shadow-md sm:p-6">
+        <h1 className="mb-2 text-center text-2xl font-bold sm:text-3xl">
+          L_meet booking pro
+        </h1>
+        <p className="mb-6 text-center text-gray-600">健身預約系統</p>
 
-        <div className="space-y-4">
-          <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 mb-2">
-            <label className="block text-sm font-medium mb-1 text-purple-800">AI 快速預約</label>
+        <div className="space-y-4 sm:space-y-5">
+          <section className="rounded-xl border border-purple-100 bg-purple-50 p-3.5 sm:p-4">
+            <h2 className="text-sm font-semibold text-purple-800">
+              AI 快速預約（選填）
+            </h2>
+            <p className="mt-0.5 text-xs text-purple-700">
+              也可以直接手動填寫下方表單
+            </p>
+            <label className="mt-2 block text-xs font-medium text-purple-700">
+              AI 快速預約內容
+            </label>
             <textarea
               value={naturalInput}
               onChange={(e) => setNaturalInput(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 bg-white"
+              className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm"
               placeholder="例如：我想約 4/6 下午兩點 AI課 兩節"
-              rows={3}
+              rows={2}
             />
             <button
               type="button"
@@ -664,7 +786,7 @@ export default function Home() {
                   alert("AI 解析失敗，請查看 console");
                 }
               }}
-              className="w-full bg-purple-600 text-white py-2 mt-2 rounded-lg hover:opacity-90 transition-opacity text-sm font-medium"
+              className="mt-2 min-h-[42px] w-full rounded-lg bg-purple-600 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
             >
               AI 解析預約內容
             </button>
@@ -861,252 +983,357 @@ export default function Home() {
                   alert("AI 一鍵預約失敗，請查看 console");
                 }
               }}
-              className="w-full bg-fuchsia-700 text-white py-3 mt-2 rounded-lg hover:opacity-90"
+              className="mt-2 min-h-[42px] w-full rounded-lg bg-fuchsia-700 py-2.5 text-sm text-white hover:opacity-90"
             >
               AI 一鍵預約
             </button>
-          </div>
+          </section>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">服務類型</label>
-            <select
-              value={service}
-              onChange={(e) => {
-                setService(e.target.value);
-                setTime("");
-                setAiSuggestedTime("");
-              }}
-              className="w-full border rounded-lg px-3 py-2"
-            >
-              {services.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </div>
+          <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-4">
+            <h2 className="text-sm font-semibold text-gray-800">預約資訊</h2>
+            <p className="-mt-2 text-xs text-gray-500">流程：先選日期，再選時間</p>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">預約節數</label>
-            <select
-              value={lessons}
-              onChange={(e) => {
-                setLessons(e.target.value);
-                setTime("");
-                setAiSuggestedTime("");
-              }}
-              className="w-full border rounded-lg px-3 py-2"
-            >
-              <option value="1">1 節</option>
-              <option value="2">2 節</option>
-              <option value="3">3 節</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">姓名</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2"
-              placeholder="請輸入姓名"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">LINE ID</label>
-            <input
-              type="text"
-              value={lineId}
-              onChange={(e) => setLineId(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2"
-              placeholder="請輸入 LINE ID"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">電話</label>
-            <input
-              type="text"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2"
-              placeholder="請輸入電話"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">預約日期</label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => {
-                setDate(e.target.value);
-                setTime("");
-                setAiSuggestedTime("");
-              }}
-              className="w-full border rounded-lg px-3 py-2"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">預約時間</label>
-            <select
-              value={time}
-              onChange={(e) => {
-                setTime(e.target.value);
-                setAiSuggestedTime("");
-              }}
-              className="w-full border rounded-lg px-3 py-2"
-            >
-              <option value="">請選擇時間</option>
-              {selectableTimes.map((slot) => (
-                <option key={slot} value={slot}>
-                  {slot}
-                </option>
-              ))}
-            </select>
-            {aiSuggestedTime && (
-              <div className="mt-2 bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm rounded-lg p-3">
-                AI 建議時間：<span className="font-semibold">{aiSuggestedTime}</span>
-                <br />
-                請從下拉選單確認目前可預約的時間。
-              </div>
-            )}
-            {aiRecommendedTimes.length > 0 && (
-              <div className="mt-2 bg-blue-50 border border-blue-200 text-blue-800 text-sm rounded-lg p-3">
-                <div className="font-semibold mb-1">AI 推薦其他可選時間：</div>
-                <div className="flex gap-2 flex-wrap">
-                  {aiRecommendedTimes.map((t) => (
-                    <span
-                      key={t}
-                      className="px-2 py-1 bg-blue-100 rounded cursor-pointer hover:bg-blue-200"
-                      onClick={() => applyRecommendedDateTime(t)}
-                    >
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">備註</label>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2"
-              placeholder="可填寫需求或補充說明"
-              rows={4}
-            />
-          </div>
-
-          {previewRange && (
-            <div className="bg-gray-100 p-4 rounded-lg text-sm">
-              <p className="font-semibold mb-1">本次預約時間：</p>
-              <p className="text-lg font-bold">
-                {previewRange.start} ～ {previewRange.end}
-              </p>
-              <p className="text-gray-500 mt-1 text-xs">
-                （已包含課程與準備時間）
-              </p>
+            <div>
+              <label className="mb-1 block text-sm font-medium">服務類型</label>
+              <select
+                value={service}
+                onChange={(e) => {
+                  setService(e.target.value);
+                  setTime("");
+                  setAiSuggestedTime("");
+                }}
+                className="w-full rounded-lg border px-3 py-2"
+              >
+                {services.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
             </div>
-          )}
 
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="w-full bg-black text-white py-3 rounded-lg hover:opacity-90 disabled:opacity-50"
-          >
-            {loading ? "送出中..." : "送出預約"}
-          </button>
+            <div>
+              <label className="mb-1 block text-sm font-medium">預約節數</label>
+              <select
+                value={lessons}
+                onChange={(e) => {
+                  setLessons(e.target.value);
+                  setTime("");
+                  setAiSuggestedTime("");
+                }}
+                className="w-full rounded-lg border px-3 py-2"
+              >
+                <option value="1">1 節</option>
+                <option value="2">2 節</option>
+                <option value="3">3 節</option>
+              </select>
+            </div>
 
-          <button
-            type="button"
-            onClick={async () => {
-              try {
-                const response = await fetch("/api/calendar/create-booking-event", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    name: "測試學員",
-                    service: "AI課程",
-                    date: "2026-04-06",
-                    startTime: "14:00",
-                    endTime: "16:30",
-                    note: "這是一筆測試用預約事件",
-                    phone: "0912345678",
-                    lineId: "test_line_001",
-                  }),
-                });
+            <div>
+              <div className="mb-1 block text-sm font-medium">Step 1：先選日期</div>
+              <p className="mb-2 text-xs text-gray-500">從下方 30 天面板挑一天，再往下選時間</p>
 
-                const result = await response.json();
-                console.log(result);
+              {availabilityLoading ? (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-500">
+                  讀取可預約日期中...
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {availability30Days.map((item) => {
+                    const isFull = item.status === "full";
+                    const selected = date === item.date && !isFull;
+                    const weekday =
+                      weekdayLabels[new Date(`${item.date}T00:00:00`).getDay()];
+                    const monthDay = item.date.slice(5).replace("-", "/");
 
-                if (response.ok) {
-                  alert("Google Calendar 預約事件建立成功！");
-                } else {
-                  if (result?.reauthRequired) {
-                    alert("Google Calendar 授權已失效，請重新授權");
-                  } else {
+                    return (
+                      <button
+                        key={item.date}
+                        type="button"
+                        disabled={isFull}
+                        onClick={() => {
+                          if (isFull) return;
+                          setDate(item.date);
+                          setTime("");
+                          setAiSuggestedTime("");
+                          timeSectionRef.current?.scrollIntoView({
+                            behavior: "smooth",
+                            block: "start",
+                          });
+                        }}
+                        className={`min-h-[70px] rounded-lg border px-2 py-2 text-left transition-colors ${
+                          selected
+                            ? "border-indigo-600 bg-indigo-600 text-white shadow-md ring-2 ring-indigo-200"
+                            : isFull
+                              ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400 opacity-55"
+                              : item.status === "limited"
+                                ? "border-amber-200 bg-amber-50/70 text-amber-800 hover:bg-amber-100"
+                                : "border-gray-200 bg-gray-50 text-gray-700 hover:bg-white hover:border-gray-300"
+                        }`}
+                      >
+                        <div className="text-sm font-semibold leading-5">{monthDay}</div>
+                        <div className="text-[11px] opacity-80">週{weekday}</div>
+                        <div className="mt-1 text-[11px] font-medium">
+                          {availabilityStatusText[item.status]}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              <p className="mt-2 text-xs font-medium text-gray-700">
+                {date
+                  ? `目前已選日期：${formatDateWithWeekday(date)}`
+                  : "尚未選擇日期"}
+              </p>
+
+              {!availabilityLoading && date && (
+                <p className="mt-1 text-xs text-gray-500">
+                  {!selectedAvailability || !selectedAvailability.firstAvailableTime
+                    ? "下一步：請在下方挑選可預約時間"
+                    : `下一步：可先參考 ${selectedAvailability.firstAvailableTime}（仍以下方時間為準）`}
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-3">
+              <label className="mb-1 block text-xs font-medium text-gray-600">手動指定日期（補充）</label>
+              <p className="mb-2 text-xs text-gray-500">若上方卡片未選，或想直接指定日期，可在此手動選擇</p>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => {
+                  setDate(e.target.value);
+                  setTime("");
+                  setAiSuggestedTime("");
+                }}
+                className="w-full rounded-lg border px-3 py-2"
+              />
+            </div>
+
+            <div ref={timeSectionRef}>
+              <label className="mb-1 block text-sm font-medium">Step 2：再選時間</label>
+              <p className="mb-2 text-xs text-gray-500">請選擇當天可預約開始時間</p>
+              {!date ? (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-500">
+                  請先從上方選擇日期
+                </div>
+              ) : selectableTimes.length === 0 ? (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-500">
+                  當日目前沒有可預約時間
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {selectableTimes.map((slot) => {
+                    const selected = time === slot;
+
+                    return (
+                      <button
+                        key={slot}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() => {
+                          setTime(slot);
+                          setAiSuggestedTime("");
+                        }}
+                        className={`min-h-[44px] rounded-lg border px-2 py-2 text-sm font-medium transition-colors ${
+                          selected
+                            ? "border-indigo-600 bg-indigo-600 text-white shadow-md ring-2 ring-indigo-200"
+                            : "border-gray-200 bg-white text-gray-800 hover:border-gray-300 hover:bg-gray-50"
+                        }`}
+                      >
+                        {slot}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {aiSuggestedTime && (
+                <div className="mt-2 rounded-lg border border-yellow-200 bg-yellow-50 p-2.5 text-xs text-yellow-800">
+                  AI 建議可參考：<span className="font-semibold">{aiSuggestedTime}</span>
+                  <br />
+                  仍請以上方可選時間按鈕為準。
+                </div>
+              )}
+              {aiRecommendedTimes.length > 0 && (
+                <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50 p-2.5 text-xs text-blue-800">
+                  <div className="mb-2 font-semibold">AI 推薦其他可選時間</div>
+                  <div className="flex flex-wrap gap-2">
+                    {aiRecommendedTimes.map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        className="min-h-[38px] rounded-lg bg-blue-100 px-3 py-2 text-xs font-medium text-blue-900 hover:bg-blue-200"
+                        onClick={() => applyRecommendedDateTime(t)}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-4">
+            <h2 className="text-sm font-semibold text-gray-800">聯絡資料</h2>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">姓名</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full rounded-lg border px-3 py-2"
+                placeholder="請輸入姓名"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">LINE ID</label>
+              <input
+                type="text"
+                value={lineId}
+                onChange={(e) => setLineId(e.target.value)}
+                className="w-full rounded-lg border px-3 py-2"
+                placeholder="請輸入 LINE ID"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">電話</label>
+              <input
+                type="text"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full rounded-lg border px-3 py-2"
+                placeholder="請輸入電話"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">備註</label>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                className="w-full rounded-lg border px-3 py-2"
+                placeholder="可填寫需求或補充說明"
+                rows={4}
+              />
+            </div>
+
+            {previewRange && (
+              <div className="rounded-lg bg-gray-100 p-4 text-sm">
+                <p className="mb-1 font-semibold">本次預約時間：</p>
+                <p className="text-lg font-bold">
+                  {previewRange.start} ～ {previewRange.end}
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  （已包含課程與準備時間）
+                </p>
+              </div>
+            )}
+
+            <button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="min-h-[44px] w-full rounded-lg bg-black py-3 text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {loading ? "送出中..." : "送出預約"}
+            </button>
+          </section>
+
+          {isDevelopment && (
+            <section className="space-y-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4">
+              <h2 className="text-sm font-semibold text-gray-700">開發工具</h2>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const response = await fetch("/api/calendar/create-booking-event", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify({
+                        name: "測試學員",
+                        service: "AI課程",
+                        date: "2026-04-06",
+                        startTime: "14:00",
+                        endTime: "16:30",
+                        note: "這是一筆測試用預約事件",
+                        phone: "0912345678",
+                        lineId: "test_line_001",
+                      }),
+                    });
+
+                    const result = await response.json();
+                    console.log(result);
+
+                    if (response.ok) {
+                      alert("Google Calendar 預約事件建立成功！");
+                    } else {
+                      if (result?.reauthRequired) {
+                        alert("Google Calendar 授權已失效，請重新授權");
+                      } else {
+                        alert("建立失敗，請查看 console");
+                      }
+                    }
+                  } catch (error) {
+                    console.error(error);
                     alert("建立失敗，請查看 console");
                   }
-                }
-              } catch (error) {
-                console.error(error);
-                alert("建立失敗，請查看 console");
-              }
-            }}
-            className="w-full mt-3 bg-blue-600 text-white py-3 rounded-lg hover:opacity-90"
-          >
-            測試建立 Calendar 事件
-          </button>
+                }}
+                className="min-h-[44px] w-full rounded-lg bg-blue-600 py-3 text-white hover:opacity-90"
+              >
+                測試建立 Calendar 事件
+              </button>
 
-          <button
-            type="button"
-            onClick={async () => {
-              try {
-                const response = await fetch("/api/calendar/busy", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    date: "2026-04-02",
-                  }),
-                });
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const response = await fetch("/api/calendar/busy", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify({
+                        date: "2026-04-02",
+                      }),
+                    });
 
-                const result = await response.json();
-                console.log("Calendar busy result:", result);
+                    const result = await response.json();
+                    console.log("Calendar busy result:", result);
 
-                if (response.ok) {
-                  alert("busy API 測試成功，請看 console");
-                } else {
-                  alert("busy API 測試失敗，請看 console");
-                }
-              } catch (error) {
-                console.error(error);
-                alert("busy API 測試失敗");
-              }
-            }}
-            className="w-full mt-3 bg-green-600 text-white py-3 rounded-lg hover:opacity-90"
-          >
-            測試讀取 Calendar busy
-          </button>
+                    if (response.ok) {
+                      alert("busy API 測試成功，請看 console");
+                    } else {
+                      alert("busy API 測試失敗，請看 console");
+                    }
+                  } catch (error) {
+                    console.error(error);
+                    alert("busy API 測試失敗");
+                  }
+                }}
+                className="min-h-[44px] w-full rounded-lg bg-green-600 py-3 text-white hover:opacity-90"
+              >
+                測試讀取 Calendar busy
+              </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              window.location.href = "/api/auth/google";
-            }}
-            className="w-full mt-3 bg-orange-600 text-white py-3 rounded-lg hover:opacity-90"
-          >
-            重新授權 Google Calendar
-          </button>
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href = "/api/auth/google";
+                }}
+                className="min-h-[44px] w-full rounded-lg bg-orange-600 py-3 text-white hover:opacity-90"
+              >
+                重新授權 Google Calendar
+              </button>
+            </section>
+          )}
         </div>
       </div>
     </main>
