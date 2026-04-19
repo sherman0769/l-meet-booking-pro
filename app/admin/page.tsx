@@ -38,6 +38,15 @@ type PendingSyncJob = {
   createdAt?: string | null;
 };
 
+type OauthCalendarStatus = {
+  connected: boolean;
+  credentialSource: "firestore" | "env_fallback" | "missing";
+  hasRefreshToken: boolean;
+  lastUpdatedAt: string | null;
+  reauthRequired: boolean;
+  pendingSyncJobs: number;
+};
+
 const getStatusBadgeClass = (status: string) => {
   if (status === "synced") {
     return "inline-block px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800";
@@ -156,6 +165,8 @@ export default function AdminPage() {
   const [syncJobsLoading, setSyncJobsLoading] = useState(false);
   const [retryingSyncJobId, setRetryingSyncJobId] = useState<string | null>(null);
   const [dismissingSyncJobId, setDismissingSyncJobId] = useState<string | null>(null);
+  const [oauthStatus, setOauthStatus] = useState<OauthCalendarStatus | null>(null);
+  const [oauthStatusLoading, setOauthStatusLoading] = useState(false);
 
   // 改期相關狀態
   const [editId, setEditId] = useState<string | null>(null);
@@ -441,13 +452,62 @@ export default function AdminPage() {
     }
   };
 
+  const fetchOauthCalendarStatus = async () => {
+    setOauthStatusLoading(true);
+    try {
+      const response = await fetch("/api/admin/oauth-calendar-status", {
+        method: "GET",
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result?.error || "讀取 OAuth / Calendar 狀態失敗");
+      }
+
+      setOauthStatus({
+        connected: Boolean(result?.connected),
+        credentialSource:
+          result?.credentialSource === "firestore" ||
+          result?.credentialSource === "env_fallback" ||
+          result?.credentialSource === "missing"
+            ? result.credentialSource
+            : "missing",
+        hasRefreshToken: Boolean(result?.hasRefreshToken),
+        lastUpdatedAt:
+          typeof result?.lastUpdatedAt === "string" ? result.lastUpdatedAt : null,
+        reauthRequired: Boolean(result?.reauthRequired),
+        pendingSyncJobs: Number(result?.pendingSyncJobs || 0),
+      });
+    } catch (error) {
+      console.error("讀取 OAuth / Calendar 狀態失敗：", error);
+      setOauthStatus(null);
+    } finally {
+      setOauthStatusLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!authorized) {
       return;
     }
 
     fetchPendingSyncJobs();
+    fetchOauthCalendarStatus();
   }, [authorized]);
+
+  const credentialSourceLabel =
+    oauthStatus?.credentialSource === "firestore"
+      ? "Firestore"
+      : oauthStatus?.credentialSource === "env_fallback"
+        ? "Env fallback"
+        : "Missing";
+
+  const formatLastUpdatedAt = (value: string | null) => {
+    if (!value) return "-";
+    const ms = Date.parse(value);
+    if (Number.isNaN(ms)) return "-";
+    return new Date(ms).toLocaleString("zh-TW", { hour12: false });
+  };
 
   const handleRetrySyncJob = async (job: PendingSyncJob) => {
     setRetryingSyncJobId(job.id);
@@ -646,6 +706,51 @@ export default function AdminPage() {
               服務 Buffer 設定
             </button>
           </div>
+        </div>
+
+        <div className="mb-6 rounded-xl border bg-white p-4 shadow">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-lg font-bold">Google OAuth 狀態</h2>
+            <a
+              href="/api/auth/google"
+              className="rounded-lg bg-orange-600 px-3 py-2 text-sm text-white hover:opacity-90"
+            >
+              重新授權 Google
+            </a>
+          </div>
+
+          {oauthStatusLoading ? (
+            <p className="mt-3 text-sm text-gray-500">讀取中...</p>
+          ) : oauthStatus ? (
+            <div className="mt-3 grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
+              <p>
+                <span className="font-semibold">連線狀態：</span>
+                {oauthStatus.connected ? "已連線" : "未連線"}
+              </p>
+              <p>
+                <span className="font-semibold">憑證來源：</span>
+                {credentialSourceLabel}
+              </p>
+              <p>
+                <span className="font-semibold">Refresh Token：</span>
+                {oauthStatus.hasRefreshToken ? "存在" : "不存在"}
+              </p>
+              <p>
+                <span className="font-semibold">最後更新：</span>
+                {formatLastUpdatedAt(oauthStatus.lastUpdatedAt)}
+              </p>
+              <p>
+                <span className="font-semibold">需要重新授權：</span>
+                {oauthStatus.reauthRequired ? "是" : "否"}
+              </p>
+              <p>
+                <span className="font-semibold">待同步任務：</span>
+                {oauthStatus.pendingSyncJobs}
+              </p>
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-red-600">讀取狀態失敗</p>
+          )}
         </div>
 
         <div className="mb-6 flex flex-wrap items-end gap-3">
