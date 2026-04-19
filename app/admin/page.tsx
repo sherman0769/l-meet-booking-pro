@@ -486,6 +486,10 @@ export default function AdminPage() {
     }
   };
 
+  const refreshSyncDashboard = async () => {
+    await Promise.all([fetchPendingSyncJobs(), fetchOauthCalendarStatus()]);
+  };
+
   useEffect(() => {
     if (!authorized) {
       return;
@@ -561,7 +565,7 @@ export default function AdminPage() {
       }
 
       alert(result.message || "重試成功");
-      await fetchPendingSyncJobs();
+      await refreshSyncDashboard();
     } catch (error) {
       console.error("重試待補償項目失敗：", error);
       alert("重試失敗");
@@ -591,7 +595,7 @@ export default function AdminPage() {
       }
 
       alert(result.message || "已忽略此待補償項目");
-      await fetchPendingSyncJobs();
+      await refreshSyncDashboard();
     } catch (error) {
       console.error("忽略待補償項目失敗：", error);
       alert("忽略失敗");
