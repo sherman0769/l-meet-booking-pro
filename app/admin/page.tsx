@@ -509,6 +509,37 @@ export default function AdminPage() {
     return new Date(ms).toLocaleString("zh-TW", { hour12: false });
   };
 
+  const oauthStatusLevel = !oauthStatus
+    ? "critical"
+    : !oauthStatus.connected ||
+        oauthStatus.reauthRequired ||
+        oauthStatus.credentialSource === "missing"
+      ? "critical"
+      : oauthStatus.pendingSyncJobs > 0
+        ? "warning"
+        : "healthy";
+
+  const oauthStatusBadgeClass =
+    oauthStatusLevel === "healthy"
+      ? "bg-green-100 text-green-800 border border-green-200"
+      : oauthStatusLevel === "warning"
+        ? "bg-amber-100 text-amber-800 border border-amber-200"
+        : "bg-red-100 text-red-800 border border-red-200";
+
+  const oauthStatusBadgeText =
+    oauthStatusLevel === "healthy"
+      ? "系統正常"
+      : oauthStatusLevel === "warning"
+        ? "注意"
+        : "異常";
+
+  const oauthStatusSummary =
+    oauthStatusLevel === "healthy"
+      ? "目前 Google Calendar 連線正常，可正常同步預約。"
+      : oauthStatusLevel === "warning"
+        ? "目前系統可用，但有待同步任務，建議檢查待補償項目。"
+        : "目前授權或連線異常，請重新授權 Google Calendar。";
+
   const handleRetrySyncJob = async (job: PendingSyncJob) => {
     setRetryingSyncJobId(job.id);
     try {
@@ -710,10 +741,19 @@ export default function AdminPage() {
 
         <div className="mb-6 rounded-xl border bg-white p-4 shadow">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-lg font-bold">Google OAuth 狀態</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-bold">Google OAuth 狀態</h2>
+              <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${oauthStatusBadgeClass}`}>
+                {oauthStatusBadgeText}
+              </span>
+            </div>
             <a
               href="/api/auth/google"
-              className="rounded-lg bg-orange-600 px-3 py-2 text-sm text-white hover:opacity-90"
+              className={`rounded-lg px-3 py-2 text-sm text-white hover:opacity-90 ${
+                oauthStatus?.reauthRequired
+                  ? "bg-red-600"
+                  : "bg-orange-600"
+              }`}
             >
               重新授權 Google
             </a>
@@ -722,7 +762,19 @@ export default function AdminPage() {
           {oauthStatusLoading ? (
             <p className="mt-3 text-sm text-gray-500">讀取中...</p>
           ) : oauthStatus ? (
-            <div className="mt-3 grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
+            <>
+              <p
+                className={`mt-3 rounded-lg px-3 py-2 text-sm ${
+                  oauthStatusLevel === "healthy"
+                    ? "bg-green-50 text-green-800"
+                    : oauthStatusLevel === "warning"
+                      ? "bg-amber-50 text-amber-800"
+                      : "bg-red-50 text-red-800"
+                }`}
+              >
+                {oauthStatusSummary}
+              </p>
+              <div className="mt-3 grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
               <p>
                 <span className="font-semibold">連線狀態：</span>
                 {oauthStatus.connected ? "已連線" : "未連線"}
@@ -745,9 +797,18 @@ export default function AdminPage() {
               </p>
               <p>
                 <span className="font-semibold">待同步任務：</span>
-                {oauthStatus.pendingSyncJobs}
+                <span
+                  className={
+                    oauthStatus.pendingSyncJobs > 0
+                      ? "font-semibold text-amber-700"
+                      : "text-gray-800"
+                  }
+                >
+                  {oauthStatus.pendingSyncJobs}
+                </span>
               </p>
-            </div>
+              </div>
+            </>
           ) : (
             <p className="mt-3 text-sm text-red-600">讀取狀態失敗</p>
           )}
