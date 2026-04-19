@@ -514,38 +514,47 @@ export default function AdminPage() {
   };
 
   const oauthStatusLevel = !oauthStatus
-    ? "critical"
+    ? "immediate_action"
     : !oauthStatus.connected ||
         oauthStatus.reauthRequired ||
         oauthStatus.credentialSource === "missing"
-      ? "critical"
-      : oauthStatus.pendingSyncJobs > 0
-        ? "warning"
-        : "healthy";
+      ? "immediate_action"
+      : oauthStatus.pendingSyncJobs >= 5
+        ? "needs_action"
+        : oauthStatus.pendingSyncJobs >= 1
+          ? "watch"
+          : "healthy";
 
   const oauthStatusBadgeClass =
     oauthStatusLevel === "healthy"
       ? "bg-green-100 text-green-800 border border-green-200"
-      : oauthStatusLevel === "warning"
+      : oauthStatusLevel === "watch"
         ? "bg-amber-100 text-amber-800 border border-amber-200"
-        : "bg-red-100 text-red-800 border border-red-200";
+        : oauthStatusLevel === "needs_action"
+          ? "bg-orange-100 text-orange-800 border border-orange-200"
+          : "bg-red-100 text-red-800 border border-red-200";
 
   const oauthStatusBadgeText =
     oauthStatusLevel === "healthy"
       ? "系統正常"
-      : oauthStatusLevel === "warning"
-        ? "注意"
-        : "異常";
+      : oauthStatusLevel === "watch"
+        ? "留意"
+        : oauthStatusLevel === "needs_action"
+          ? "需要處理"
+          : "立即處理";
 
   const oauthStatusSummary =
     oauthStatusLevel === "healthy"
       ? "目前 Google Calendar 連線正常，可正常同步預約。"
-      : oauthStatusLevel === "warning"
-        ? "目前系統可用，但有待同步任務，建議檢查待補償項目。"
-        : "目前授權或連線異常，請重新授權 Google Calendar。";
+      : oauthStatusLevel === "watch"
+        ? "目前有少量待同步任務，建議留意待補償項目。"
+        : oauthStatusLevel === "needs_action"
+          ? "目前待同步任務較多，建議優先處理待補償項目。"
+          : "目前授權或連線異常，請重新授權 Google Calendar。";
 
-  const showCriticalAlert = oauthStatusLevel === "critical";
-  const showWarningAlert = oauthStatusLevel === "warning";
+  const showImmediateActionAlert = oauthStatusLevel === "immediate_action";
+  const showNeedsActionAlert = oauthStatusLevel === "needs_action";
+  const showWatchAlert = oauthStatusLevel === "watch";
 
   const handleRetrySyncJob = async (job: PendingSyncJob) => {
     setRetryingSyncJobId(job.id);
@@ -758,14 +767,14 @@ export default function AdminPage() {
               <a
                 href="/api/auth/google"
                 className={`inline-block rounded-lg px-3 py-2 text-sm text-white hover:opacity-90 ${
-                  oauthStatus?.reauthRequired
+                  oauthStatusLevel === "immediate_action"
                     ? "bg-red-600"
                     : "bg-orange-600"
                 }`}
               >
                 重新授權 Google
               </a>
-              {oauthStatus?.reauthRequired ? (
+              {oauthStatusLevel === "immediate_action" ? (
                 <p className="mt-1 text-xs text-red-700">
                   主要處理入口：請使用此按鈕重新授權 Google Calendar
                 </p>
@@ -777,22 +786,28 @@ export default function AdminPage() {
             <p className="mt-3 text-sm text-gray-500">讀取中...</p>
           ) : oauthStatus ? (
             <>
-              {showCriticalAlert ? (
+              {showImmediateActionAlert ? (
                 <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
                   需要立即處理：Google OAuth / Calendar 連線異常，請重新授權。
                 </div>
-              ) : showWarningAlert ? (
+              ) : showNeedsActionAlert ? (
+                <div className="mt-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-800">
+                  需要處理：目前待同步任務較多，建議優先處理待補償項目。
+                </div>
+              ) : showWatchAlert ? (
                 <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                  需要留意：目前有待同步任務，建議檢查待補償項目。
+                  需要留意：目前有少量待同步任務，建議檢查待補償項目。
                 </div>
               ) : null}
               <p
                 className={`mt-3 rounded-lg px-3 py-2 text-sm ${
                   oauthStatusLevel === "healthy"
                     ? "bg-green-50 text-green-800"
-                    : oauthStatusLevel === "warning"
+                    : oauthStatusLevel === "watch"
                       ? "bg-amber-50 text-amber-800"
-                      : "bg-red-50 text-red-800"
+                      : oauthStatusLevel === "needs_action"
+                        ? "bg-orange-50 text-orange-800"
+                        : "bg-red-50 text-red-800"
                 }`}
               >
                 {oauthStatusSummary}
@@ -823,14 +838,22 @@ export default function AdminPage() {
                 <span
                   className={
                     oauthStatus.pendingSyncJobs > 0
-                      ? "inline-flex items-center gap-2 font-semibold text-amber-800"
+                      ? oauthStatusLevel === "needs_action"
+                        ? "inline-flex items-center gap-2 font-semibold text-orange-800"
+                        : "inline-flex items-center gap-2 font-semibold text-amber-800"
                       : "text-gray-800"
                   }
                 >
                   {oauthStatus.pendingSyncJobs}
                   {oauthStatus.pendingSyncJobs > 0 ? (
-                    <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[11px] leading-none">
-                      需處理
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[11px] leading-none ${
+                        oauthStatusLevel === "needs_action"
+                          ? "border border-orange-300 bg-orange-100"
+                          : "border border-amber-300 bg-amber-100"
+                      }`}
+                    >
+                      {oauthStatusLevel === "needs_action" ? "需處理" : "留意"}
                     </span>
                   ) : null}
                 </span>
