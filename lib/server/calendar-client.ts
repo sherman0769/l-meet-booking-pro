@@ -88,7 +88,7 @@ async function resolveCalendarCredentials(): Promise<CalendarCredentials> {
   );
 }
 
-async function createCalendarClient() {
+export async function createGoogleCalendarClient() {
   const credentials = await resolveCalendarCredentials();
 
   const oauth2Client = new google.auth.OAuth2(
@@ -112,7 +112,7 @@ async function createCalendarClient() {
 export async function createCalendarBookingEvent(
   input: CreateCalendarBookingEventInput
 ) {
-  const { calendar, calendarId } = await createCalendarClient();
+  const { calendar, calendarId } = await createGoogleCalendarClient();
 
   const response = await calendar.events.insert({
     calendarId,
@@ -145,7 +145,7 @@ export async function createCalendarBookingEvent(
 export async function deleteCalendarBookingEvent(
   input: DeleteCalendarBookingEventInput
 ) {
-  const { calendar, calendarId } = await createCalendarClient();
+  const { calendar, calendarId } = await createGoogleCalendarClient();
 
   await calendar.events.delete({
     calendarId,
@@ -156,7 +156,7 @@ export async function deleteCalendarBookingEvent(
 export async function updateCalendarBookingEvent(
   input: UpdateCalendarBookingEventInput
 ) {
-  const { calendar, calendarId } = await createCalendarClient();
+  const { calendar, calendarId } = await createGoogleCalendarClient();
 
   await calendar.events.patch({
     calendarId,
