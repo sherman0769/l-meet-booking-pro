@@ -544,6 +544,9 @@ export default function AdminPage() {
         ? "目前系統可用，但有待同步任務，建議檢查待補償項目。"
         : "目前授權或連線異常，請重新授權 Google Calendar。";
 
+  const showCriticalAlert = oauthStatusLevel === "critical";
+  const showWarningAlert = oauthStatusLevel === "warning";
+
   const handleRetrySyncJob = async (job: PendingSyncJob) => {
     setRetryingSyncJobId(job.id);
     try {
@@ -751,22 +754,38 @@ export default function AdminPage() {
                 {oauthStatusBadgeText}
               </span>
             </div>
-            <a
-              href="/api/auth/google"
-              className={`rounded-lg px-3 py-2 text-sm text-white hover:opacity-90 ${
-                oauthStatus?.reauthRequired
-                  ? "bg-red-600"
-                  : "bg-orange-600"
-              }`}
-            >
-              重新授權 Google
-            </a>
+            <div className="text-right">
+              <a
+                href="/api/auth/google"
+                className={`inline-block rounded-lg px-3 py-2 text-sm text-white hover:opacity-90 ${
+                  oauthStatus?.reauthRequired
+                    ? "bg-red-600"
+                    : "bg-orange-600"
+                }`}
+              >
+                重新授權 Google
+              </a>
+              {oauthStatus?.reauthRequired ? (
+                <p className="mt-1 text-xs text-red-700">
+                  主要處理入口：請使用此按鈕重新授權 Google Calendar
+                </p>
+              ) : null}
+            </div>
           </div>
 
           {oauthStatusLoading ? (
             <p className="mt-3 text-sm text-gray-500">讀取中...</p>
           ) : oauthStatus ? (
             <>
+              {showCriticalAlert ? (
+                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                  需要立即處理：Google OAuth / Calendar 連線異常，請重新授權。
+                </div>
+              ) : showWarningAlert ? (
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  需要留意：目前有待同步任務，建議檢查待補償項目。
+                </div>
+              ) : null}
               <p
                 className={`mt-3 rounded-lg px-3 py-2 text-sm ${
                   oauthStatusLevel === "healthy"
@@ -804,12 +823,21 @@ export default function AdminPage() {
                 <span
                   className={
                     oauthStatus.pendingSyncJobs > 0
-                      ? "font-semibold text-amber-700"
+                      ? "inline-flex items-center gap-2 font-semibold text-amber-800"
                       : "text-gray-800"
                   }
                 >
                   {oauthStatus.pendingSyncJobs}
+                  {oauthStatus.pendingSyncJobs > 0 ? (
+                    <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[11px] leading-none">
+                      需處理
+                    </span>
+                  ) : null}
                 </span>
+              </p>
+              <p>
+                <span className="font-semibold">狀態檢查：</span>
+                {formatLastUpdatedAt(oauthStatus.lastUpdatedAt)}
               </p>
               </div>
             </>
