@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { adminDb } from "@/lib/server/firebase-admin";
 import {
   listPendingSyncJobsByActions,
   type SyncJobRecord,
 } from "@/lib/server/sync-job-repo";
 import { retrySyncJobById } from "@/lib/server/sync-job-retry";
+import { getGoogleOauthConfig } from "@/lib/server/google-oauth-config";
+import { createGoogleCalendarClient } from "@/lib/server/calendar-client";
+import { evaluateAdminAlert } from "@/lib/server/admin-alert-evaluator";
+import { sendLineAdminAlert } from "@/lib/server/line-messaging";
 
 export const runtime = "nodejs";
 
@@ -12,6 +17,8 @@ const MIN_RETRY_INTERVAL_MS = 15 * 60 * 1000;
 const MAX_BATCH_SIZE = 10;
 const FETCH_LIMIT = 100;
 const AUTO_RETRY_ACTOR = "cron";
+const LINE_ALERT_STATE_DOC = "line_alert_state";
+const ALERT_COOLDOWN_MS = 60 * 60 * 1000;
 
 type TimestampLike = {
   toMillis?: () => number;
@@ -64,6 +71,128 @@ function isAuthorizedCronRequest(request: NextRequest) {
   return token === expectedSecret;
 }
 
+function getEnvCredentials() {
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim() || "";
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim() || "";
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI?.trim() || "";
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN?.trim() || "";
+  const calendarId = process.env.GOOGLE_CALENDAR_ID?.trim() || "primary";
+
+  return {
+    complete: Boolean(
+      clientId && clientSecret && redirectUri && refreshToken && calendarId
+    ),
+    refreshToken,
+  };
+}
+
+function normalizeString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+async function buildAdminAlertInput() {
+  const checkedAt = new Date().toISOString();
+  const [firestoreConfig, envCredentials, pendingJobs] = await Promise.all([
+    getGoogleOauthConfig(),
+    Promise.resolve(getEnvCredentials()),
+    listPendingSyncJobsByActions({
+      actions: ["create", "update", "delete", "resync"],
+      limit: 500,
+    }),
+  ]);
+
+  const credentialSource = firestoreConfig
+    ? "firestore"
+    : envCredentials.complete
+      ? "env_fallback"
+      : "missing";
+
+  const hasRefreshToken =
+    credentialSource === "firestore"
+      ? Boolean(firestoreConfig?.refreshToken)
+      : credentialSource === "env_fallback"
+        ? Boolean(envCredentials.refreshToken)
+        : false;
+
+  let connected = false;
+  let reauthRequired = !hasRefreshToken;
+
+  if (credentialSource !== "missing" && hasRefreshToken) {
+    try {
+      const { calendar } = await createGoogleCalendarClient();
+      await calendar.calendarList.list({ maxResults: 1 });
+      connected = true;
+      reauthRequired = false;
+    } catch (error) {
+      console.error("[internal.sync-jobs.auto-retry][alert-check][calendar-connectivity-failed]", error);
+      connected = false;
+      reauthRequired = true;
+    }
+  }
+
+  return {
+    connected,
+    reauthRequired,
+    credentialSource,
+    pendingSyncJobs: pendingJobs.length,
+    checkedAt,
+  } as const;
+}
+
+async function trySendLineAlertAfterAutoRetry() {
+  try {
+    const alertInput = await buildAdminAlertInput();
+    const evaluation = evaluateAdminAlert(alertInput);
+
+    if (!evaluation.shouldAlert || !evaluation.level || !evaluation.signature || !evaluation.message) {
+      return;
+    }
+
+    const stateRef = adminDb.collection("system_config").doc(LINE_ALERT_STATE_DOC);
+    const stateSnap = await stateRef.get();
+    const stateData = stateSnap.exists ? stateSnap.data() : null;
+
+    const lastSignature = normalizeString(stateData?.lastSignature);
+    const lastSentAtMs = toMillis(stateData?.lastSentAt);
+    const now = Date.now();
+    const withinCooldown = lastSentAtMs > 0 && now - lastSentAtMs < ALERT_COOLDOWN_MS;
+
+    if (lastSignature && lastSignature === evaluation.signature && withinCooldown) {
+      console.info("[internal.sync-jobs.auto-retry][line-alert] skipped by cooldown", {
+        signature: evaluation.signature,
+        cooldownMs: ALERT_COOLDOWN_MS,
+      });
+      return;
+    }
+
+    const sendResult = await sendLineAdminAlert(evaluation.message);
+    if (sendResult.status === "failed") {
+      console.error("[internal.sync-jobs.auto-retry][line-alert] send failed", {
+        reason: sendResult.reason,
+      });
+      return;
+    }
+
+    if (sendResult.status === "skipped") {
+      console.info("[internal.sync-jobs.auto-retry][line-alert] skipped", {
+        reason: sendResult.reason,
+      });
+      return;
+    }
+
+    await stateRef.set(
+      {
+        lastSignature: evaluation.signature,
+        lastLevel: evaluation.level,
+        lastSentAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    console.error("[internal.sync-jobs.auto-retry][line-alert][fatal-error]", error);
+  }
+}
+
 async function handleAutoRetry(request: NextRequest) {
   if (!isAuthorizedCronRequest(request)) {
     return NextResponse.json(
@@ -106,6 +235,8 @@ async function handleAutoRetry(request: NextRequest) {
     }
 
     const skipped = pendingJobs.length - selectedJobs.length;
+
+    await trySendLineAlertAfterAutoRetry();
 
     return NextResponse.json({
       status: "success",
