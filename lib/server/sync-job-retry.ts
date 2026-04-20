@@ -4,6 +4,7 @@ import {
   getSyncJobById,
   markSyncJobResolved,
   markSyncJobRetryFailed,
+  setSyncJobCalendarEventId,
   type SyncJobAction,
   type SyncJobRecord,
 } from "@/lib/server/sync-job-repo";
@@ -120,24 +121,44 @@ async function executeSyncJobAction(job: SyncJobRecord) {
   }
 
   if (job.action === "create") {
-    const calendarResult = await createCalendarBookingEvent({
-      name: baseSlot.name,
-      service: baseSlot.service,
-      date: baseSlot.date,
-      startTime,
-      endTime,
-      note: baseSlot.note,
-      phone: baseSlot.phone,
-      lineId: baseSlot.lineId,
-    });
+    let eventId = job.calendarEventId || "";
 
-    if (!calendarResult.eventId) {
-      throw new Error("CALENDAR_EVENT_ID_MISSING");
+    if (eventId) {
+      await updateCalendarBookingEvent({
+        eventId,
+        date: baseSlot.date,
+        startTime,
+        endTime,
+        name: baseSlot.name,
+        service: baseSlot.service,
+      });
+    } else {
+      const calendarResult = await createCalendarBookingEvent({
+        name: baseSlot.name,
+        service: baseSlot.service,
+        date: baseSlot.date,
+        startTime,
+        endTime,
+        note: baseSlot.note,
+        phone: baseSlot.phone,
+        lineId: baseSlot.lineId,
+      });
+
+      if (!calendarResult.eventId) {
+        throw new Error("CALENDAR_EVENT_ID_MISSING");
+      }
+
+      eventId = calendarResult.eventId;
+
+      await setSyncJobCalendarEventId({
+        jobId: job.id,
+        calendarEventId: eventId,
+      });
     }
 
     await markBookingSlotIdsSynced({
       slotIds: targetSlots.map((slot) => slot.id),
-      eventId: calendarResult.eventId,
+      eventId,
     });
     return;
   }

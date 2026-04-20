@@ -31,7 +31,17 @@ export type SyncJobRecord = {
   lastTriedAt?: unknown;
   lastTriedBy?: string | null;
   resolvedBy?: string | null;
+  leaseOwner?: string | null;
+  leaseExpiresAt?: unknown;
+  leaseUpdatedAt?: unknown;
 };
+
+export type ClaimSyncJobForRetryResult =
+  | { claimed: true }
+  | {
+      claimed: false;
+      reason: "not_found" | "not_pending" | "lease_active";
+    };
 
 function buildJobKey(input: UpsertPendingSyncJobInput) {
   const rawKey = [
@@ -43,6 +53,23 @@ function buildJobKey(input: UpsertPendingSyncJobInput) {
   ].join("|");
 
   return createHash("sha256").update(rawKey).digest("hex");
+}
+
+function toMillis(value: unknown) {
+  if (!value) return 0;
+  if (typeof value === "string") {
+    const ms = Date.parse(value);
+    return Number.isNaN(ms) ? 0 : ms;
+  }
+
+  const ts = value as { toMillis?: () => number; seconds?: number };
+  if (typeof ts.toMillis === "function") {
+    return ts.toMillis();
+  }
+  if (typeof ts.seconds === "number") {
+    return ts.seconds * 1000;
+  }
+  return 0;
 }
 
 export async function upsertPendingSyncJob(input: UpsertPendingSyncJobInput) {
@@ -101,6 +128,9 @@ export async function getSyncJobById(jobId: string): Promise<SyncJobRecord | nul
     lastTriedAt: data?.lastTriedAt || null,
     lastTriedBy: data?.lastTriedBy || null,
     resolvedBy: data?.resolvedBy || null,
+    leaseOwner: data?.leaseOwner || null,
+    leaseExpiresAt: data?.leaseExpiresAt || null,
+    leaseUpdatedAt: data?.leaseUpdatedAt || null,
   };
 }
 
@@ -135,7 +165,52 @@ export async function listPendingSyncJobsByActions(params: {
       lastTriedAt: data?.lastTriedAt || null,
       lastTriedBy: data?.lastTriedBy || null,
       resolvedBy: data?.resolvedBy || null,
+      leaseOwner: data?.leaseOwner || null,
+      leaseExpiresAt: data?.leaseExpiresAt || null,
+      leaseUpdatedAt: data?.leaseUpdatedAt || null,
     };
+  });
+}
+
+export async function claimSyncJobForRetry(params: {
+  jobId: string;
+  actor: string;
+  leaseMs: number;
+}): Promise<ClaimSyncJobForRetryResult> {
+  const { jobId, actor, leaseMs } = params;
+  const ref = adminDb.collection("sync_jobs").doc(jobId);
+  const now = Date.now();
+  const leaseExpiresAt = new Date(now + Math.max(0, leaseMs)).toISOString();
+
+  return adminDb.runTransaction(async (transaction) => {
+    const snap = await transaction.get(ref);
+    if (!snap.exists) {
+      return { claimed: false, reason: "not_found" } as ClaimSyncJobForRetryResult;
+    }
+
+    const data = snap.data();
+    const status = (data?.status || "pending") as SyncJobStatus;
+    if (status !== "pending") {
+      return { claimed: false, reason: "not_pending" } as ClaimSyncJobForRetryResult;
+    }
+
+    const existingLeaseExpiresAtMs = toMillis(data?.leaseExpiresAt);
+    if (existingLeaseExpiresAtMs > now) {
+      return { claimed: false, reason: "lease_active" } as ClaimSyncJobForRetryResult;
+    }
+
+    transaction.set(
+      ref,
+      {
+        leaseOwner: actor,
+        leaseExpiresAt,
+        leaseUpdatedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    return { claimed: true } as ClaimSyncJobForRetryResult;
   });
 }
 
@@ -152,6 +227,9 @@ export async function markSyncJobResolved(params: {
     lastTriedBy: actor,
     updatedAt: FieldValue.serverTimestamp(),
     lastError: "",
+    leaseOwner: null,
+    leaseExpiresAt: null,
+    leaseUpdatedAt: null,
   });
 }
 
@@ -172,6 +250,9 @@ export async function markSyncJobRetryFailed(params: {
       updatedAt: FieldValue.serverTimestamp(),
       resolvedAt: null,
       resolvedBy: null,
+      leaseOwner: null,
+      leaseExpiresAt: null,
+      leaseUpdatedAt: null,
     },
     { merge: true }
   );
@@ -191,6 +272,20 @@ export async function markSyncJobDismissed(params: {
       resolvedAt: FieldValue.serverTimestamp(),
       resolvedBy: actor,
       ...(reason ? { dismissReason: reason } : {}),
+    },
+    { merge: true }
+  );
+}
+
+export async function setSyncJobCalendarEventId(params: {
+  jobId: string;
+  calendarEventId: string;
+}) {
+  const { jobId, calendarEventId } = params;
+  await adminDb.collection("sync_jobs").doc(jobId).set(
+    {
+      calendarEventId,
+      updatedAt: FieldValue.serverTimestamp(),
     },
     { merge: true }
   );

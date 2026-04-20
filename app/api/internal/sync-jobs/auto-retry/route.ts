@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/server/firebase-admin";
 import {
+  claimSyncJobForRetry,
   listPendingSyncJobsByActions,
   type SyncJobRecord,
 } from "@/lib/server/sync-job-repo";
@@ -17,8 +18,10 @@ const MIN_RETRY_INTERVAL_MS = 15 * 60 * 1000;
 const MAX_BATCH_SIZE = 10;
 const FETCH_LIMIT = 100;
 const AUTO_RETRY_ACTOR = "cron";
+const RETRY_LEASE_MS = 10 * 60 * 1000;
 const LINE_ALERT_STATE_DOC = "line_alert_state";
 const ALERT_COOLDOWN_MS = 60 * 60 * 1000;
+const DRY_RUN_SECRET_HEADER = "x-auto-retry-dry-run-secret";
 
 type TimestampLike = {
   toMillis?: () => number;
@@ -69,6 +72,29 @@ function isAuthorizedCronRequest(request: NextRequest) {
 
   const token = authHeader.slice("Bearer ".length).trim();
   return token === expectedSecret;
+}
+
+function isDryRunRequested(request: NextRequest) {
+  const dryRun = request.nextUrl.searchParams.get("dryRun")?.trim().toLowerCase();
+  return dryRun === "1" || dryRun === "true";
+}
+
+function isDryRunAllowedByEnvironment() {
+  if (process.env.NODE_ENV !== "production") {
+    return true;
+  }
+
+  return process.env.AUTO_RETRY_DRY_RUN_ALLOW_PRODUCTION?.trim().toLowerCase() === "true";
+}
+
+function isAuthorizedDryRunRequest(request: NextRequest) {
+  const expectedSecret = process.env.AUTO_RETRY_DRY_RUN_SECRET?.trim();
+  if (!expectedSecret) {
+    return false;
+  }
+
+  const providedSecret = request.headers.get(DRY_RUN_SECRET_HEADER)?.trim() || "";
+  return providedSecret === expectedSecret;
 }
 
 function getEnvCredentials() {
@@ -193,7 +219,7 @@ async function trySendLineAlertAfterAutoRetry() {
   }
 }
 
-async function handleAutoRetry(request: NextRequest) {
+async function handleAutoRetry(request: NextRequest, options?: { allowDryRun?: boolean }) {
   if (!isAuthorizedCronRequest(request)) {
     return NextResponse.json(
       {
@@ -206,6 +232,32 @@ async function handleAutoRetry(request: NextRequest) {
   }
 
   try {
+    const dryRun =
+      Boolean(options?.allowDryRun) &&
+      isDryRunRequested(request);
+
+    if (dryRun && !isDryRunAllowedByEnvironment()) {
+      return NextResponse.json(
+        {
+          status: "forbidden",
+          code: "dry_run_not_allowed",
+          message: "Dry-run is not allowed in this environment",
+        },
+        { status: 403 }
+      );
+    }
+
+    if (dryRun && !isAuthorizedDryRunRequest(request)) {
+      return NextResponse.json(
+        {
+          status: "unauthorized",
+          code: "dry_run_unauthorized",
+          message: "Unauthorized dry-run secret",
+        },
+        { status: 401 }
+      );
+    }
+
     const pendingJobs = await listPendingSyncJobsByActions({
       actions: ["create", "update"],
       limit: FETCH_LIMIT,
@@ -214,16 +266,87 @@ async function handleAutoRetry(request: NextRequest) {
     const now = Date.now();
     const eligibleJobs = pendingJobs.filter((job) => isReadyForRetry(job, now));
     const selectedJobs = eligibleJobs.slice(0, MAX_BATCH_SIZE);
+    const jobResults: Array<{
+      jobId: string;
+      action: SyncJobRecord["action"];
+      resultStatus: string;
+      resultCode?: string;
+      message?: string;
+    }> = [];
 
     let processed = 0;
     let succeeded = 0;
     let failed = 0;
 
+    if (dryRun) {
+      for (const job of selectedJobs) {
+        jobResults.push({
+          jobId: job.id,
+          action: job.action,
+          resultStatus: "dry_run_not_executed",
+          message: "dry-run mode: retry not executed",
+        });
+      }
+
+      const alertInput = await buildAdminAlertInput();
+      const alertEvaluation = evaluateAdminAlert(alertInput);
+      const skipped = pendingJobs.length - selectedJobs.length;
+
+      return NextResponse.json({
+        status: "success",
+        message: "auto retry dry-run completed",
+        processed,
+        succeeded,
+        failed,
+        skipped,
+        selection: {
+          fetched: pendingJobs.length,
+          eligible: eligibleJobs.length,
+          selected: selectedJobs.length,
+        },
+        jobResults,
+        dryRun: true,
+        executed: false,
+        dryRunAlert: {
+          input: alertInput,
+          evaluation: {
+            shouldAlert: alertEvaluation.shouldAlert,
+            level: alertEvaluation.level,
+            signature: alertEvaluation.signature,
+            checkedAt: alertEvaluation.checkedAt,
+          },
+        },
+      });
+    }
+
     for (const job of selectedJobs) {
+      const claimResult = await claimSyncJobForRetry({
+        jobId: job.id,
+        actor: AUTO_RETRY_ACTOR,
+        leaseMs: RETRY_LEASE_MS,
+      });
+      if (!claimResult.claimed) {
+        jobResults.push({
+          jobId: job.id,
+          action: job.action,
+          resultStatus: "claim_failed",
+          resultCode: claimResult.reason,
+          message: "job claim failed",
+        });
+        continue;
+      }
+
       const result = await retrySyncJobById({
         jobId: job.id,
         actor: AUTO_RETRY_ACTOR,
         allowedActions: ["create", "update"],
+      });
+      jobResults.push({
+        jobId: job.id,
+        action: job.action,
+        resultStatus: result.status,
+        resultCode: "code" in result ? result.code : undefined,
+        message: result.message,
       });
 
       processed += 1;
@@ -245,6 +368,12 @@ async function handleAutoRetry(request: NextRequest) {
       succeeded,
       failed,
       skipped,
+      selection: {
+        fetched: pendingJobs.length,
+        eligible: eligibleJobs.length,
+        selected: selectedJobs.length,
+      },
+      jobResults,
     });
   } catch (error) {
     console.error("[internal.sync-jobs.auto-retry][fatal-error]", error);
@@ -260,9 +389,9 @@ async function handleAutoRetry(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  return handleAutoRetry(request);
+  return handleAutoRetry(request, { allowDryRun: true });
 }
 
 export async function POST(request: NextRequest) {
-  return handleAutoRetry(request);
+  return handleAutoRetry(request, { allowDryRun: false });
 }
