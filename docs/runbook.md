@@ -67,6 +67,11 @@ npm run dev
 - 部署到 Vercel staging
 - 先走 Phase 1（安全啟動）：`LINE_ALERT_ENABLED=false`
 
+### Step 1.5：Google OAuth staging 前置條件
+- staging 必須使用獨立 Firebase 專案（不可共用 production Firestore）
+- staging 必須使用獨立 Google Cloud 專案（不可共用 production OAuth 憑證）
+- staging 必須使用獨立 Google Calendar（不可使用 production 或個人 primary）
+
 ### Step 2：dry-run 驗證
 - 僅測試 dry-run：`/api/internal/sync-jobs/auto-retry?dryRun=1`
 - 驗證重點：回應正常、無資料寫入、副作用受控
@@ -79,6 +84,21 @@ npm run dev
 ### Step 4：進階測試（未來）
 - 保留未來擴充（更完整的 staging 整合驗證）
 
+### Step 5：Google Calendar staging 設定與驗證
+1. 建立 staging 專用 Google Calendar（建議使用 group/shared calendar）。
+2. 取得該 calendar 的 Calendar ID（group calendar ID）。
+3. 在 staging Google Cloud 專案建立 OAuth consent screen。
+4. 建立 OAuth client（Web application），redirect URI 設為 staging callback。
+5. 在 OAuth consent screen 加入 test users。
+6. 在 Vercel staging 設定：
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_REDIRECT_URI`
+- `GOOGLE_CALENDAR_ID`（使用 group calendar ID）
+7. 啟用 Google Calendar API（在 staging Google Cloud 專案）。
+8. 進入 staging 網站後走 `/api/auth/google` 完成授權，確認 token 已寫入 staging Firestore。
+9. 以前台表單送出一次預約，確認 Calendar event 建立成功。
+
 ---
 
 ## 🚨 不可以做的事情
@@ -87,6 +107,8 @@ npm run dev
 - 不在 staging 用 production Firebase
 - 不在 staging 用 production Google 設定
 - 不把 LINE 發給正式使用者
+- 不使用 Gmail primary calendar 當 staging 測試目標
+- 不共用 production Google OAuth 憑證
 
 ---
 
@@ -119,6 +141,7 @@ git commit -m "<type>: <message>"
 - `404`：route 未部署
 - LINE 不發：`LINE_ALERT_ENABLED=false`
 - `to invalid`：`userId` 錯誤
+- 預約建立成功但同步失敗：多半為 Google Calendar API 未啟用，或 OAuth/Calendar 設定不完整
 
 ## 🛠 問題排查順序
 1. 確認 URL 是否正確（local / staging）
