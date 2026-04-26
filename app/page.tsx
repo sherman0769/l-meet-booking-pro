@@ -1051,7 +1051,7 @@ export default function Home() {
                             </div>
                           </div>
                         </div>
-                        <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-4">
+                        <div className="grid grid-cols-4 gap-2 sm:grid-cols-4">
                           {Array.from({ length: 9 }).map((_, index) => (
                             <div
                               key={index}
@@ -1065,7 +1065,7 @@ export default function Home() {
                         </div>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-4">
+                      <div className="grid grid-cols-4 gap-2 sm:grid-cols-4">
                   {availability30Days.map((item) => {
                     const isFull = item.status === "full";
                     const selected = date === item.date && !isFull;
@@ -1088,7 +1088,7 @@ export default function Home() {
                             block: "start",
                           });
                         }}
-                        className={`min-h-[58px] rounded-lg border px-2 py-1.5 text-left transition-colors ${
+                        className={`min-h-[58px] rounded-lg border px-2 py-1.5 text-left transition-colors active:scale-95 ${
                           selected
                             ? "border-indigo-600 bg-indigo-600 text-white shadow-md ring-2 ring-indigo-200"
                             : isFull
@@ -1101,10 +1101,10 @@ export default function Home() {
                         <div className="text-xs font-semibold leading-5 tracking-tight">
                           {monthDay}
                         </div>
-                        <div className="text-[11px] text-gray-500">
+                        <div className="text-[10px] text-gray-500">
                           週{weekday}
                         </div>
-                        <div className="mt-0.5 text-[11px] font-medium">
+                        <div className="mt-0.5 text-[10px] font-medium">
                           {availabilityStatusText[item.status]}
                         </div>
                       </button>
