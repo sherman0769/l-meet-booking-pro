@@ -671,28 +671,30 @@ export default function Home() {
   const isDevelopment = process.env.NODE_ENV !== "production";
 
   return (
-    <main className="min-h-screen bg-gray-50 p-4 sm:p-6">
-      <div className="mx-auto w-full max-w-md rounded-2xl bg-white p-4 shadow-md sm:p-6">
-        <h1 className="mb-2 text-center text-2xl font-bold sm:text-3xl">
-          L_meet booking pro
+    <main className="min-h-screen bg-gradient-to-b from-indigo-50 via-white to-purple-50 p-4 sm:p-6">
+      <div className="mx-auto w-full max-w-md rounded-3xl border border-white/70 bg-white/85 p-4 shadow-xl shadow-indigo-100/70 backdrop-blur sm:p-6">
+        <h1 className="mb-3 text-center text-3xl font-bold tracking-tight text-gray-950 sm:text-4xl">
+          Li’s Meet 課程預約
         </h1>
-        <p className="mb-6 text-center text-gray-600">健身預約系統</p>
+        <p className="mb-8 text-center text-sm font-medium text-indigo-700">
+          你的專屬訓練時段，由你選擇
+        </p>
 
-        <div className="space-y-4 sm:space-y-5">
-          <section className="rounded-xl border border-purple-100 bg-purple-50 p-3.5 sm:p-4">
-            <h2 className="text-sm font-semibold text-purple-800">
-              AI 快速預約（選填）
+        <div className="flex flex-col gap-6 sm:gap-7">
+          <section className="order-4 rounded-2xl border border-gray-200/70 bg-gray-50/80 p-3.5 shadow-none sm:p-4">
+            <h2 className="text-xs font-medium text-gray-600">
+              快速預約（進階）
             </h2>
-            <p className="mt-0.5 text-xs text-purple-700">
+            <p className="mt-0.5 text-[11px] text-gray-500">
               也可以直接手動填寫下方表單
             </p>
-            <label className="mt-2 block text-xs font-medium text-purple-700">
+            <label className="mt-2 block text-[11px] font-medium text-gray-500">
               AI 快速預約內容
             </label>
             <textarea
               value={naturalInput}
               onChange={(e) => setNaturalInput(e.target.value)}
-              className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-xs"
               placeholder="例如：我想約 4/6 下午兩點 AI課 兩節"
               rows={2}
             />
@@ -988,11 +990,11 @@ export default function Home() {
             </button>
           </section>
 
-          <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-4">
+          <section className="order-1 flex flex-col gap-4 rounded-2xl border border-indigo-100 bg-white p-4 shadow-lg shadow-indigo-100/70">
             <h2 className="text-sm font-semibold text-gray-800">預約資訊</h2>
             <p className="-mt-2 text-xs text-gray-500">流程：先選日期，再選時間</p>
 
-            <div>
+            <div className="order-3">
               <label className="mb-1 block text-sm font-medium">服務類型</label>
               <select
                 value={service}
@@ -1011,7 +1013,7 @@ export default function Home() {
               </select>
             </div>
 
-            <div>
+            <div className="order-4">
               <label className="mb-1 block text-sm font-medium">預約節數</label>
               <select
                 value={lessons}
@@ -1028,16 +1030,16 @@ export default function Home() {
               </select>
             </div>
 
-            <div>
-              <div className="mb-1 block text-sm font-medium">Step 1：先選日期</div>
-              <p className="mb-2 text-xs text-gray-500">從下方 30 天面板挑一天，再往下選時間</p>
+            <div className="order-1">
+              <div className="mb-1 block text-sm font-semibold text-gray-800">選擇日期</div>
+              <p className="mb-1 text-xs text-gray-500">先選一天，再選時間</p>
 
               {availabilityLoading ? (
                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-500">
                   讀取可預約日期中...
                 </div>
               ) : (
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
                   {availability30Days.map((item) => {
                     const isFull = item.status === "full";
                     const selected = date === item.date && !isFull;
@@ -1060,7 +1062,7 @@ export default function Home() {
                             block: "start",
                           });
                         }}
-                        className={`min-h-[70px] rounded-lg border px-2 py-2 text-left transition-colors ${
+                        className={`min-h-[58px] rounded-lg border px-2 py-1.5 text-left transition-colors ${
                           selected
                             ? "border-indigo-600 bg-indigo-600 text-white shadow-md ring-2 ring-indigo-200"
                             : isFull
@@ -1070,9 +1072,10 @@ export default function Home() {
                                 : "border-gray-200 bg-gray-50 text-gray-700 hover:bg-white hover:border-gray-300"
                         }`}
                       >
-                        <div className="text-sm font-semibold leading-5">{monthDay}</div>
-                        <div className="text-[11px] opacity-80">週{weekday}</div>
-                        <div className="mt-1 text-[11px] font-medium">
+                        <div className="text-xs font-semibold leading-5">
+                          {monthDay}・週{weekday}
+                        </div>
+                        <div className="text-[11px] font-medium">
                           {availabilityStatusText[item.status]}
                         </div>
                       </button>
@@ -1096,7 +1099,7 @@ export default function Home() {
               )}
             </div>
 
-            <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-3">
+            <div className="order-1 rounded-lg border border-gray-200 bg-gray-50/60 p-3">
               <label className="mb-1 block text-xs font-medium text-gray-600">手動指定日期（補充）</label>
               <p className="mb-2 text-xs text-gray-500">若上方卡片未選，或想直接指定日期，可在此手動選擇</p>
               <input
@@ -1111,8 +1114,8 @@ export default function Home() {
               />
             </div>
 
-            <div ref={timeSectionRef}>
-              <label className="mb-1 block text-sm font-medium">Step 2：再選時間</label>
+            <div className="order-2" ref={timeSectionRef}>
+              <label className="mb-1 block text-sm font-semibold text-gray-800">選擇時間</label>
               <p className="mb-2 text-xs text-gray-500">請選擇當天可預約開始時間</p>
               {!date ? (
                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-500">
@@ -1123,7 +1126,7 @@ export default function Home() {
                   當日目前沒有可預約時間
                 </div>
               ) : (
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
                   {selectableTimes.map((slot) => {
                     const selected = time === slot;
 
@@ -1139,7 +1142,7 @@ export default function Home() {
                         className={`min-h-[44px] rounded-lg border px-2 py-2 text-sm font-medium transition-colors ${
                           selected
                             ? "border-indigo-600 bg-indigo-600 text-white shadow-md ring-2 ring-indigo-200"
-                            : "border-gray-200 bg-white text-gray-800 hover:border-gray-300 hover:bg-gray-50"
+                            : "border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-300 hover:bg-white"
                         }`}
                       >
                         {slot}
@@ -1175,7 +1178,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-4">
+          <section className="order-2 space-y-4 rounded-2xl border border-purple-100 bg-white p-4 shadow-lg shadow-purple-100/60">
             <h2 className="text-sm font-semibold text-gray-800">聯絡資料</h2>
 
             <div>
@@ -1237,102 +1240,11 @@ export default function Home() {
             <button
               onClick={handleSubmit}
               disabled={loading}
-              className="min-h-[44px] w-full rounded-lg bg-black py-3 text-white hover:opacity-90 disabled:opacity-50"
+              className="min-h-[52px] w-full rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 py-3.5 font-semibold text-white shadow-lg shadow-indigo-200/70 hover:opacity-90 disabled:opacity-50"
             >
               {loading ? "送出中..." : "送出預約"}
             </button>
           </section>
-
-          {isDevelopment && (
-            <section className="space-y-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4">
-              <h2 className="text-sm font-semibold text-gray-700">開發工具</h2>
-
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    const response = await fetch("/api/calendar/create-booking-event", {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                      },
-                      body: JSON.stringify({
-                        name: "測試學員",
-                        service: "AI課程",
-                        date: "2026-04-06",
-                        startTime: "14:00",
-                        endTime: "16:30",
-                        note: "這是一筆測試用預約事件",
-                        phone: "0912345678",
-                        lineId: "test_line_001",
-                      }),
-                    });
-
-                    const result = await response.json();
-                    console.log(result);
-
-                    if (response.ok) {
-                      alert("Google Calendar 預約事件建立成功！");
-                    } else {
-                      if (result?.reauthRequired) {
-                        alert("Google Calendar 授權已失效，請重新授權");
-                      } else {
-                        alert("建立失敗，請查看 console");
-                      }
-                    }
-                  } catch (error) {
-                    console.error(error);
-                    alert("建立失敗，請查看 console");
-                  }
-                }}
-                className="min-h-[44px] w-full rounded-lg bg-blue-600 py-3 text-white hover:opacity-90"
-              >
-                測試建立 Calendar 事件
-              </button>
-
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    const response = await fetch("/api/calendar/busy", {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                      },
-                      body: JSON.stringify({
-                        date: "2026-04-02",
-                      }),
-                    });
-
-                    const result = await response.json();
-                    console.log("Calendar busy result:", result);
-
-                    if (response.ok) {
-                      alert("busy API 測試成功，請看 console");
-                    } else {
-                      alert("busy API 測試失敗，請看 console");
-                    }
-                  } catch (error) {
-                    console.error(error);
-                    alert("busy API 測試失敗");
-                  }
-                }}
-                className="min-h-[44px] w-full rounded-lg bg-green-600 py-3 text-white hover:opacity-90"
-              >
-                測試讀取 Calendar busy
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  window.location.href = "/api/auth/google";
-                }}
-                className="min-h-[44px] w-full rounded-lg bg-orange-600 py-3 text-white hover:opacity-90"
-              >
-                重新授權 Google Calendar
-              </button>
-            </section>
-          )}
         </div>
       </div>
     </main>
