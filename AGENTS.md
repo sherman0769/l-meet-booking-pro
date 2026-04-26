@@ -1,5 +1,10 @@
 # Project: l-meet-booking-pro
 
+## Operational Source of Truth
+
+- `/docs/runbook.md` is the operational source of truth.
+- If this file and the runbook differ, follow the runbook first.
+
 ## Overview
 This is a production-ready booking system with Google Calendar integration.
 
@@ -131,6 +136,17 @@ Displays:
 
 ## Development Rules
 
+### Workflow
+
+- Follow the current ChatGPT x Codex workflow and keep changes minimal.
+- Prefer existing conventions and operational runbook guidance over assumptions.
+
+### Model Routing
+
+- GPT-5.4-Mini: read-only checks, API tests, docs updates
+- GPT-5.3-Codex: normal code changes
+- GPT-5.5: high-risk architecture, OAuth, Calendar, production, retry changes
+
 ### Commit Flow
 
 Use Skill:
@@ -154,6 +170,13 @@ Always verify:
 3. Reschedule booking
 4. Cancel booking
 
+### Safety Rules
+
+- Never invoke auto-retry without dry-run unless explicitly instructed.
+- Never assume localhost when testing staging.
+- Do not use production Firebase/Google/LINE for staging.
+- Prefer minimal changes.
+
 ---
 
 ## Environment
@@ -173,7 +196,9 @@ Always verify:
 Platform: Vercel
 
 Main project:
-l-meet-booking-pro-92f7
+l-meet-booking-pro
+
+Do not assume `l-meet-booking-pro-92f7` is the current staging project.
 
 ---
 
