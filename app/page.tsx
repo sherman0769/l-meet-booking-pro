@@ -1051,7 +1051,7 @@ export default function Home() {
                             </div>
                           </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+                        <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-4">
                           {Array.from({ length: 9 }).map((_, index) => (
                             <div
                               key={index}
@@ -1065,7 +1065,7 @@ export default function Home() {
                         </div>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+                      <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-4">
                   {availability30Days.map((item) => {
                     const isFull = item.status === "full";
                     const selected = date === item.date && !isFull;
