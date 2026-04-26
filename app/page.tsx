@@ -223,6 +223,35 @@ export default function Home() {
 
   const baseSlots = generateHalfHourSlots("08:00", "20:30");
 
+  const fetchBusySlotsWithFailSafe = async ({
+    targetDate,
+    targetService,
+  }: {
+    targetDate: string;
+    targetService: string;
+  }) => {
+    try {
+      const response = await fetch("/api/calendar/busy", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ date: targetDate }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && Array.isArray(result?.busy)) {
+        return expandBusyToSlots(result.busy, targetService);
+      }
+
+      return [...baseSlots];
+    } catch (error) {
+      console.error("讀取 Calendar busy 失敗，啟用 fail-safe 全時段封鎖：", error);
+      return [...baseSlots];
+    }
+  };
+
   const fitnessStartTimes = [
     "08:00",
     "09:30",
@@ -375,20 +404,10 @@ export default function Home() {
       .filter(Boolean);
 
     // 2. 讀 Google Calendar busy 區間
-    const busyResponse = await fetch("/api/calendar/busy", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ date: targetDate }),
+    const busySlots = await fetchBusySlotsWithFailSafe({
+      targetDate,
+      targetService,
     });
-
-    const busyResult = await busyResponse.json();
-
-    const busySlots =
-      busyResponse.ok && Array.isArray(busyResult.busy)
-        ? expandBusyToSlots(busyResult.busy, targetService)
-        : [];
 
     const blocked = [...new Set([...firestoreTimes, ...busySlots])];
     // 3. 依服務取得候選開始時間
@@ -553,22 +572,11 @@ export default function Home() {
         setBookedTimes(firestoreTimes);
 
         // 2. 讀 Google Calendar busy 區間
-        const response = await fetch("/api/calendar/busy", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ date }),
+        const busySlots = await fetchBusySlotsWithFailSafe({
+          targetDate: date,
+          targetService: service,
         });
-
-        const result = await response.json();
-
-        if (response.ok && Array.isArray(result.busy)) {
-          const busySlots = expandBusyToSlots(result.busy, service);
-          setCalendarBusyTimes(busySlots);
-        } else {
-          setCalendarBusyTimes([]);
-        }
+        setCalendarBusyTimes(busySlots);
       } catch (error) {
         console.error("讀取 blocked times 失敗：", error);
         setBookedTimes([]);
@@ -847,19 +855,10 @@ export default function Home() {
                     .map((doc) => doc.data().time as string)
                     .filter(Boolean);
 
-                  const busyResponse = await fetch("/api/calendar/busy", {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({ date: nextDate }),
+                  const busySlots = await fetchBusySlotsWithFailSafe({
+                    targetDate: nextDate,
+                    targetService: nextService,
                   });
-
-                  const busyResult = await busyResponse.json();
-                  const busySlots =
-                    busyResponse.ok && Array.isArray(busyResult.busy)
-                      ? expandBusyToSlots(busyResult.busy, nextService)
-                      : [];
 
                   const blocked = [...new Set([...firestoreTimes, ...busySlots])];
 
