@@ -1034,12 +1034,38 @@ export default function Home() {
               <div className="mb-1 block text-sm font-semibold text-gray-800">選擇日期</div>
               <p className="mb-1 text-xs text-gray-500">先選一天，再選時間</p>
 
-              {availabilityLoading ? (
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-500">
-                  讀取可預約日期中...
-                </div>
-              ) : (
-                <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+                    {availabilityLoading ? (
+                      <div className="space-y-3">
+                        <div className="rounded-xl border border-indigo-100 bg-indigo-50/70 p-3 shadow-sm shadow-indigo-100/40">
+                          <div className="flex items-start gap-3">
+                            <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-indigo-600 shadow-sm">
+                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-sm font-semibold text-gray-800">
+                                正在讀取可預約日期
+                              </div>
+                              <p className="mt-1 text-xs leading-5 text-gray-500">
+                                系統正在比對行事曆忙碌時段，請稍候
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+                          {Array.from({ length: 9 }).map((_, index) => (
+                            <div
+                              key={index}
+                              className="min-h-[58px] rounded-lg border border-gray-200 bg-gray-100/80 p-2"
+                            >
+                              <div className="h-3.5 w-12 animate-pulse rounded-full bg-gray-200" />
+                              <div className="mt-2 h-3 w-8 animate-pulse rounded-full bg-gray-200" />
+                              <div className="mt-2 h-3 w-10 animate-pulse rounded-full bg-gray-200" />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
                   {availability30Days.map((item) => {
                     const isFull = item.status === "full";
                     const selected = date === item.date && !isFull;
@@ -1068,14 +1094,17 @@ export default function Home() {
                             : isFull
                               ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400 opacity-55"
                               : item.status === "limited"
-                                ? "border-amber-200 bg-amber-50/70 text-amber-800 hover:bg-amber-100"
-                                : "border-gray-200 bg-gray-50 text-gray-700 hover:bg-white hover:border-gray-300"
+                                ? "border-amber-200 bg-amber-50/80 text-amber-700 hover:bg-amber-100"
+                                : "border-indigo-100 bg-gradient-to-br from-indigo-50 to-purple-50 text-gray-800 hover:border-indigo-200 hover:from-indigo-100 hover:to-purple-100"
                         }`}
                       >
-                        <div className="text-xs font-semibold leading-5">
-                          {monthDay}・週{weekday}
+                        <div className="text-xs font-semibold leading-5 tracking-tight">
+                          {monthDay}
                         </div>
-                        <div className="text-[11px] font-medium">
+                        <div className="text-[11px] text-gray-500">
+                          週{weekday}
+                        </div>
+                        <div className="mt-0.5 text-[11px] font-medium">
                           {availabilityStatusText[item.status]}
                         </div>
                       </button>
