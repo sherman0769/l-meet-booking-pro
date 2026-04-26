@@ -668,6 +668,8 @@ export default function Home() {
     full: "已滿",
   };
   const selectedAvailability = availability30Days.find((item) => item.date === date);
+  const hasAvailabilityData = availability30Days.length > 0;
+  const showInitialAvailabilityLoading = availabilityLoading && !hasAvailabilityData;
   const isDevelopment = process.env.NODE_ENV !== "production";
 
   return (
@@ -1034,7 +1036,7 @@ export default function Home() {
               <div className="mb-1 block text-sm font-semibold text-gray-800">選擇日期</div>
               <p className="mb-1 text-xs text-gray-500">先選一天，再選時間</p>
 
-                    {availabilityLoading ? (
+                    {showInitialAvailabilityLoading ? (
                       <div className="space-y-3">
                         <div className="rounded-xl border border-indigo-100 bg-indigo-50/70 p-3 shadow-sm shadow-indigo-100/40">
                           <div className="flex items-start gap-3">
@@ -1065,6 +1067,10 @@ export default function Home() {
                         </div>
                       </div>
                     ) : (
+                      <>
+                        {availabilityLoading && hasAvailabilityData && (
+                          <p className="mb-2 text-xs text-gray-500">正在更新可預約時間…</p>
+                        )}
                       <div className="grid grid-cols-4 gap-2 sm:grid-cols-4">
                   {availability30Days.map((item) => {
                     const isFull = item.status === "full";
@@ -1111,6 +1117,7 @@ export default function Home() {
                     );
                   })}
                 </div>
+                </>
               )}
 
               <p className="mt-2 text-xs font-medium text-gray-700">
