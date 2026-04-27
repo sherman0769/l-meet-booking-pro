@@ -161,6 +161,7 @@ export default function AdminPage() {
   const [filterStatus, setFilterStatus] = useState<"all" | "failed">("all");
   const [filterContactStatus, setFilterContactStatus] = useState("");
   const [searchKeyword, setSearchKeyword] = useState("");
+  const [bookingRangeFilter, setBookingRangeFilter] = useState<"upcoming30days" | "all">("upcoming30days");
   const [pendingSyncJobs, setPendingSyncJobs] = useState<PendingSyncJob[]>([]);
   const [syncJobsLoading, setSyncJobsLoading] = useState(false);
   const [retryingSyncJobId, setRetryingSyncJobId] = useState<string | null>(null);
@@ -183,6 +184,12 @@ export default function AdminPage() {
   const tomorrow = (() => {
     const d = new Date();
     d.setDate(d.getDate() + 1);
+    return formatDate(d);
+  })();
+
+  const upcoming30DaysEnd = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
     return formatDate(d);
   })();
 
@@ -617,6 +624,10 @@ export default function AdminPage() {
   };
 
   const filteredBookings = bookings.filter((booking) => {
+    const matchRecentRange =
+      bookingRangeFilter === "all"
+        ? true
+        : booking.date >= today && booking.date <= upcoming30DaysEnd;
     const matchDate = filterDate ? booking.date === filterDate : true;
     const matchService = filterService ? booking.service === filterService : true;
     const matchStatus =
@@ -636,6 +647,7 @@ export default function AdminPage() {
       : true;
 
     return (
+      matchRecentRange &&
       matchDate &&
       matchService &&
       matchStatus &&
@@ -862,6 +874,32 @@ export default function AdminPage() {
         </div>
 
         <div className="mb-6 rounded-xl border bg-white p-4 shadow-sm">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-gray-700">顯示範圍</span>
+            <button
+              type="button"
+              onClick={() => setBookingRangeFilter("upcoming30days")}
+              className={`rounded-lg px-3 py-1.5 text-sm ${
+                bookingRangeFilter === "upcoming30days"
+                  ? "bg-gray-900 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              未來30天
+            </button>
+            <button
+              type="button"
+              onClick={() => setBookingRangeFilter("all")}
+              className={`rounded-lg px-3 py-1.5 text-sm ${
+                bookingRangeFilter === "all"
+                  ? "bg-gray-900 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              全部
+            </button>
+          </div>
+
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="min-w-0">
               <label className="mb-1 block text-sm font-semibold text-gray-800">篩選日期</label>
@@ -958,6 +996,7 @@ export default function AdminPage() {
               <button
                 type="button"
                 onClick={() => {
+                  setBookingRangeFilter("upcoming30days");
                   setFilterDate("");
                   setFilterService("");
                   setFilterStatus("all");
@@ -972,7 +1011,7 @@ export default function AdminPage() {
           </details>
         </div>
 
-        <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
           <div className="bg-white rounded-xl shadow p-4 border">
             <div className="text-sm text-gray-500">總預約數</div>
             <div className="text-2xl font-bold">{stats.total}</div>
