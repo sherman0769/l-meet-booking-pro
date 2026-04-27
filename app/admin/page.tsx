@@ -503,8 +503,8 @@ export default function AdminPage() {
     oauthStatus?.credentialSource === "firestore"
       ? "Firestore"
       : oauthStatus?.credentialSource === "env_fallback"
-        ? "Env fallback"
-        : "Missing";
+        ? "環境變數備援"
+        : "未設定";
 
   const formatLastUpdatedAt = (value: string | null) => {
     if (!value) return "-";
@@ -547,9 +547,9 @@ export default function AdminPage() {
     oauthStatusLevel === "healthy"
       ? "目前 Google Calendar 連線正常，可正常同步預約。"
       : oauthStatusLevel === "watch"
-        ? "目前有少量待同步任務，建議留意待補償項目。"
+        ? "目前有少量待同步任務，建議留意待處理同步項目。"
         : oauthStatusLevel === "needs_action"
-          ? "目前待同步任務較多，建議優先處理待補償項目。"
+          ? "目前待同步任務較多，建議優先處理待處理同步項目。"
           : "目前授權或連線異常，請重新授權 Google Calendar。";
 
   const showImmediateActionAlert = oauthStatusLevel === "immediate_action";
@@ -727,7 +727,7 @@ export default function AdminPage() {
     <main className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold">管理後台｜預約列表</h1>
+          <h1 className="text-3xl font-bold">管理後台｜預約紀錄</h1>
 
           <div className="flex gap-2 flex-wrap">
             <button
@@ -743,14 +743,14 @@ export default function AdminPage() {
               }}
               className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:opacity-90"
             >
-              重新授權 Calendar
+              重新授權行事曆
             </button>
 
             <button
               onClick={() => router.push("/admin/service-buffers")}
               className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:opacity-90"
             >
-              服務 Buffer 設定
+              服務緩衝設定
             </button>
           </div>
         </div>
@@ -758,7 +758,7 @@ export default function AdminPage() {
         <div className="mb-6 rounded-xl border bg-white p-4 shadow">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold">Google OAuth 狀態</h2>
+              <h2 className="text-lg font-bold">行事曆連線狀態</h2>
               <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${oauthStatusBadgeClass}`}>
                 {oauthStatusBadgeText}
               </span>
@@ -772,11 +772,11 @@ export default function AdminPage() {
                     : "bg-orange-600"
                 }`}
               >
-                重新授權 Google
+                重新授權行事曆
               </a>
               {oauthStatusLevel === "immediate_action" ? (
                 <p className="mt-1 text-xs text-red-700">
-                  主要處理入口：請使用此按鈕重新授權 Google Calendar
+                  主要處理入口：請使用此按鈕重新授權行事曆
                 </p>
               ) : null}
             </div>
@@ -792,11 +792,11 @@ export default function AdminPage() {
                 </div>
               ) : showNeedsActionAlert ? (
                 <div className="mt-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-800">
-                  需要處理：目前待同步任務較多，建議優先處理待補償項目。
+                  需要處理：目前待同步任務較多，建議優先處理待處理同步項目。
                 </div>
               ) : showWatchAlert ? (
                 <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                  需要留意：目前有少量待同步任務，建議檢查待補償項目。
+                  需要留意：目前有少量待同步任務，建議檢查待處理同步項目。
                 </div>
               ) : null}
               <p
@@ -822,7 +822,7 @@ export default function AdminPage() {
                 {credentialSourceLabel}
               </p>
               <p>
-                <span className="font-semibold">Refresh Token：</span>
+                <span className="font-semibold">更新憑證：</span>
                 {oauthStatus.hasRefreshToken ? "存在" : "不存在"}
               </p>
               <p>
@@ -869,8 +869,8 @@ export default function AdminPage() {
           )}
         </div>
 
-        <div className="mb-6 flex flex-wrap items-end gap-3">
-          <div>
+        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
+          <div className="min-w-0">
             <label className="block text-sm font-medium mb-1">篩選日期</label>
             <input
               type="date"
@@ -905,7 +905,7 @@ export default function AdminPage() {
             </div>
           </div>
 
-          <div>
+          <div className="min-w-0">
             <label className="block text-sm font-medium mb-1">服務類型</label>
             <select
               value={filterService}
@@ -920,7 +920,7 @@ export default function AdminPage() {
             </select>
           </div>
 
-          <div>
+          <div className="min-w-0">
             <label className="block text-sm font-medium mb-1">搜尋</label>
             <input
               type="text"
@@ -931,19 +931,19 @@ export default function AdminPage() {
             />
           </div>
 
-          <div>
+          <div className="min-w-0">
             <label className="block text-sm font-medium mb-1">同步狀態</label>
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value as "all" | "failed")}
               className="border rounded-lg px-3 py-2 bg-white"
             >
-              <option value="all">all</option>
-              <option value="failed">failed</option>
+              <option value="all">全部</option>
+              <option value="failed">同步失敗</option>
             </select>
           </div>
 
-          <div>
+          <div className="min-w-0">
             <label className="block text-sm font-medium mb-1">聯絡狀態</label>
             <select
               value={filterContactStatus}
@@ -967,129 +967,155 @@ export default function AdminPage() {
               setFilterContactStatus("");
               setSearchKeyword("");
             }}
-            className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300"
+            className="w-full self-end bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 sm:w-auto"
           >
             清除篩選
           </button>
         </div>
 
-        <div className="mb-6 grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-3">
+        <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="bg-white rounded-xl shadow p-4 border">
             <div className="text-sm text-gray-500">總預約數</div>
             <div className="text-2xl font-bold">{stats.total}</div>
           </div>
 
           <div className="bg-white rounded-xl shadow p-4 border">
-            <div className="text-sm text-gray-500">總堂數</div>
-            <div className="text-2xl font-bold">{stats.totalLessons}</div>
+            <div className="text-sm text-gray-500">待處理</div>
+            <div className="text-2xl font-bold text-amber-700">
+              {stats.未聯絡 + syncStats.pendingSyncJobsCount}
+            </div>
           </div>
 
           <div className="bg-white rounded-xl shadow p-4 border">
-            <div className="text-sm text-gray-500">總占用格數</div>
-            <div className="text-2xl font-bold">{stats.totalSlots}</div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow p-4 border">
-            <div className="text-sm text-gray-500">健身</div>
-            <div className="text-2xl font-bold">{stats.健身}</div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow p-4 border">
-            <div className="text-sm text-gray-500">AI課程</div>
-            <div className="text-2xl font-bold">{stats.AI課程}</div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow p-4 border">
-            <div className="text-sm text-gray-500">咨詢</div>
-            <div className="text-2xl font-bold">{stats.咨詢}</div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow p-4 border">
-            <div className="text-sm text-gray-500">顧問</div>
-            <div className="text-2xl font-bold">{stats.顧問}</div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow p-4 border">
-            <div className="text-sm text-gray-500">未聯絡</div>
-            <div className="text-2xl font-bold">{stats.未聯絡}</div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow p-4 border">
-            <div className="text-sm text-gray-500">已聯絡</div>
-            <div className="text-2xl font-bold">{stats.已聯絡}</div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow p-4 border">
-            <div className="text-sm text-gray-500">已確認</div>
-            <div className="text-2xl font-bold">{stats.已確認}</div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow p-4 border">
-            <div className="text-sm text-gray-500">已完成</div>
-            <div className="text-2xl font-bold">{stats.已完成}</div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow p-4 border">
-            <div className="text-sm text-gray-500">Failed Bookings</div>
+            <div className="text-sm text-gray-500">同步失敗</div>
             <div className="text-2xl font-bold text-red-700">
               {syncStats.failedBookingsCount}
             </div>
           </div>
+        </div>
 
-          <div className="bg-white rounded-xl shadow p-4 border">
-            <div className="text-sm text-gray-500">Pending Sync Jobs</div>
-            <div className="text-2xl font-bold text-amber-700">
+        <details className="mb-6 rounded-xl border bg-white p-4 text-sm text-gray-600 shadow-sm">
+          <summary className="cursor-pointer select-none font-semibold text-gray-800">
+            其他統計
+          </summary>
+          <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
+          <div className="rounded-lg border bg-gray-50 p-3">
+            <div className="text-xs text-gray-500">總堂數</div>
+            <div className="text-lg font-bold text-gray-900">{stats.totalLessons}</div>
+          </div>
+
+          <div className="rounded-lg border bg-gray-50 p-3">
+            <div className="text-xs text-gray-500">總占用格數</div>
+            <div className="text-lg font-bold text-gray-900">{stats.totalSlots}</div>
+          </div>
+
+          <div className="rounded-lg border bg-gray-50 p-3">
+            <div className="text-xs text-gray-500">健身</div>
+            <div className="text-lg font-bold text-gray-900">{stats.健身}</div>
+          </div>
+
+          <div className="rounded-lg border bg-gray-50 p-3">
+            <div className="text-xs text-gray-500">AI課程</div>
+            <div className="text-lg font-bold text-gray-900">{stats.AI課程}</div>
+          </div>
+
+          <div className="rounded-lg border bg-gray-50 p-3">
+            <div className="text-xs text-gray-500">咨詢</div>
+            <div className="text-lg font-bold text-gray-900">{stats.咨詢}</div>
+          </div>
+
+          <div className="rounded-lg border bg-gray-50 p-3">
+            <div className="text-xs text-gray-500">顧問</div>
+            <div className="text-lg font-bold text-gray-900">{stats.顧問}</div>
+          </div>
+
+          <div className="rounded-lg border bg-gray-50 p-3">
+            <div className="text-xs text-gray-500">未聯絡</div>
+            <div className="text-lg font-bold text-gray-900">{stats.未聯絡}</div>
+          </div>
+
+          <div className="rounded-lg border bg-gray-50 p-3">
+            <div className="text-xs text-gray-500">已聯絡</div>
+            <div className="text-lg font-bold text-gray-900">{stats.已聯絡}</div>
+          </div>
+
+          <div className="rounded-lg border bg-gray-50 p-3">
+            <div className="text-xs text-gray-500">已確認</div>
+            <div className="text-lg font-bold text-gray-900">{stats.已確認}</div>
+          </div>
+
+          <div className="rounded-lg border bg-gray-50 p-3">
+            <div className="text-xs text-gray-500">已完成</div>
+            <div className="text-lg font-bold text-gray-900">{stats.已完成}</div>
+          </div>
+
+          <div className="rounded-lg border bg-gray-50 p-3">
+            <div className="text-xs text-gray-500">同步失敗預約</div>
+            <div className="text-lg font-bold text-red-700">
+              {syncStats.failedBookingsCount}
+            </div>
+          </div>
+
+          <div className="rounded-lg border bg-gray-50 p-3">
+            <div className="text-xs text-gray-500">待同步項目</div>
+            <div className="text-lg font-bold text-amber-700">
               {syncStats.pendingSyncJobsCount}
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow p-4 border">
-            <div className="text-sm text-gray-500">Pending Delete Jobs</div>
-            <div className="text-2xl font-bold text-orange-700">
+          <div className="rounded-lg border bg-gray-50 p-3">
+            <div className="text-xs text-gray-500">待刪除同步項目</div>
+            <div className="text-lg font-bold text-orange-700">
               {syncStats.pendingDeleteJobsCount}
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow p-4 border">
-            <div className="text-sm text-gray-500">High Retry Jobs</div>
-            <div className="text-2xl font-bold text-purple-700">
+          <div className="rounded-lg border bg-gray-50 p-3">
+            <div className="text-xs text-gray-500">高重試次數項目</div>
+            <div className="text-lg font-bold text-purple-700">
               {syncStats.highRetryJobsCount}
             </div>
           </div>
-        </div>
+          </div>
+        </details>
 
         <div className="mb-6 bg-white rounded-xl shadow p-4 border">
-          <h2 className="text-lg font-bold mb-3">待補償項目</h2>
+          <h2 className="text-lg font-bold mb-3">待處理同步項目</h2>
 
           {syncJobsLoading ? (
             <p className="text-sm text-gray-500">讀取中...</p>
           ) : pendingSyncJobs.length === 0 ? (
-            <p className="text-sm text-gray-500">目前沒有待補償項目</p>
+            <p className="text-sm text-gray-500">目前沒有待處理同步項目</p>
           ) : (
             <div className="space-y-3">
               {pendingSyncJobs.map((job) => (
                 <div key={job.id} className="rounded-lg border bg-gray-50 p-3 text-sm">
-                  <p><span className="font-semibold">action：</span>{job.action || "-"}</p>
-                  <p><span className="font-semibold">reason：</span>{job.reason || "-"}</p>
-                  <p><span className="font-semibold">bookingGroupId：</span>{job.bookingGroupId || "-"}</p>
-                  <p><span className="font-semibold">bookingId：</span>{job.bookingId || "-"}</p>
-                  <p><span className="font-semibold">calendarEventId：</span>{job.calendarEventId || "-"}</p>
-                  <p><span className="font-semibold">attemptCount：</span>{job.attemptCount}</p>
+                  <p><span className="font-semibold">動作：</span>{job.action || "-"}</p>
+                  <p><span className="font-semibold">原因：</span>{job.reason || "-"}</p>
+                  <p><span className="font-semibold">重試次數：</span>{job.attemptCount}</p>
                   {job.lastError ? (
-                    <p><span className="font-semibold">lastError：</span>{job.lastError}</p>
+                    <p><span className="font-semibold">最近錯誤：</span>{job.lastError}</p>
                   ) : null}
                   {job.lastTriedAt ? (
-                    <p><span className="font-semibold">lastTriedAt：</span>{job.lastTriedAt}</p>
+                    <p><span className="font-semibold">最近嘗試：</span>{job.lastTriedAt}</p>
                   ) : null}
                   <p>
-                    <span className="font-semibold">updatedAt：</span>
+                    <span className="font-semibold">更新時間：</span>
                     {job.updatedAt || job.createdAt || "-"}
                   </p>
+                  <details className="mt-2 text-xs text-gray-500">
+                    <summary className="cursor-pointer select-none">技術細節</summary>
+                    <div className="mt-1 space-y-1">
+                      <p><span className="font-medium">bookingGroupId：</span>{job.bookingGroupId || "-"}</p>
+                      <p><span className="font-medium">bookingId：</span>{job.bookingId || "-"}</p>
+                      <p><span className="font-medium">calendarEventId：</span>{job.calendarEventId || "-"}</p>
+                    </div>
+                  </details>
                   {(job.action === "delete" || job.action === "update" || job.action === "create") && (
                     <button
                       onClick={() => handleRetrySyncJob(job)}
                       disabled={retryingSyncJobId === job.id}
-                      className="mt-2 px-3 py-1 rounded bg-blue-600 text-white hover:opacity-90 disabled:opacity-50"
+                      className="mt-2 px-3 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-50"
                     >
                       {retryingSyncJobId === job.id ? "重試中..." : "重試"}
                     </button>
@@ -1097,7 +1123,7 @@ export default function AdminPage() {
                   <button
                     onClick={() => handleDismissSyncJob(job)}
                     disabled={dismissingSyncJobId === job.id}
-                    className="mt-2 ml-2 px-3 py-1 rounded bg-gray-500 text-white hover:opacity-90 disabled:opacity-50"
+                    className="mt-2 ml-2 px-3 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
                   >
                     {dismissingSyncJobId === job.id ? "忽略中..." : "忽略"}
                   </button>
@@ -1107,6 +1133,7 @@ export default function AdminPage() {
           )}
         </div>
 
+        <h2 className="mb-3 text-lg font-bold">預約紀錄</h2>
         {loading ? (
           <p>載入中...</p>
         ) : sortedGroupedBookings.length === 0 ? (
@@ -1163,10 +1190,6 @@ export default function AdminPage() {
                     </p>
                     <p><span className="font-semibold">節數：</span>{booking.lessons || 1}</p>
                     <p><span className="font-semibold">占用格數：</span>{group.length}</p>
-                    <p>
-                      <span className="font-semibold">bookingGroupId：</span>
-                      {booking.bookingGroupId || "legacy"}
-                    </p>
                     <div className="md:col-span-2 bg-gray-50 rounded-xl p-3 border">
                       <div className="text-sm text-gray-500 mb-1">預約時段</div>
                       <div className="text-lg font-bold text-gray-900">
@@ -1180,13 +1203,13 @@ export default function AdminPage() {
                       </span>
                     </p>
                     <p>
-                      <span className="font-semibold">Google Calendar：</span>
+                      <span className="font-semibold">行事曆同步：</span>
                       <span
                         className={getStatusBadgeClass(
                           booking.calendarSyncStatus || "unknown"
                         )}
                       >
-                        {booking.calendarSyncStatus || "unknown"}
+                        {booking.calendarSyncStatus || "未知"}
                       </span>
                     </p>
                     <p className="flex items-center gap-2 flex-wrap">
@@ -1216,16 +1239,16 @@ export default function AdminPage() {
                   <div className="mt-3">
                     <p className="font-semibold">備註：</p>
                     <p className="text-gray-700 mt-1">{booking.note || "無"}</p>
+                    <details className="mt-2 text-xs text-gray-500">
+                      <summary className="cursor-pointer select-none">技術細節</summary>
+                      <p className="mt-1">
+                        <span className="font-medium">bookingGroupId：</span>
+                        {booking.bookingGroupId || "legacy"}
+                      </p>
+                    </details>
                   </div>
 
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <button
-                      onClick={() => handleCopyMessage(booking)}
-                      className="px-4 py-2 rounded-lg bg-gray-800 text-white hover:opacity-90"
-                    >
-                      複製訊息
-                    </button>
-
                     <button
                       onClick={() =>
                         handleCopyCustomMessage(
@@ -1236,7 +1259,7 @@ export default function AdminPage() {
                       }
                       className="px-4 py-2 rounded-lg bg-blue-700 text-white hover:opacity-90"
                     >
-                      複製確認訊息
+                      確認
                     </button>
 
                     <button
@@ -1249,37 +1272,51 @@ export default function AdminPage() {
                       }
                       className="px-4 py-2 rounded-lg bg-green-700 text-white hover:opacity-90"
                     >
-                      複製完成訊息
-                    </button>
-
-                    <button
-                      onClick={() => handleCancel(booking)}
-                      className="px-4 py-2 rounded-lg bg-red-600 text-white hover:opacity-90"
-                    >
-                      取消預約
-                    </button>
-                    {booking.calendarSyncStatus === "failed" && (
-                      <button
-                        onClick={() => handleResyncCalendar(booking)}
-                        disabled={resyncingId === (booking.bookingGroupId || booking.id)}
-                        className="px-4 py-2 rounded-lg bg-amber-600 text-white hover:opacity-90"
-                      >
-                        {resyncingId === (booking.bookingGroupId || booking.id)
-                          ? "補同步中..."
-                          : "補同步 Calendar"}
-                      </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        setEditId(cardId);
-                        setNewDate(booking.date);
-                        setNewTime(booking.time);
-                      }}
-                      className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:opacity-90"
-                    >
-                      改期
+                      完成
                     </button>
                   </div>
+
+                  <details className="mt-3 rounded-lg border bg-gray-50 p-3 text-sm">
+                    <summary className="cursor-pointer select-none font-medium text-gray-700">
+                      其他操作
+                    </summary>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        onClick={() => handleCopyMessage(booking)}
+                        className="px-4 py-2 rounded-lg bg-gray-800 text-white hover:opacity-90"
+                      >
+                        複製提醒訊息
+                      </button>
+
+                      <button
+                        onClick={() => handleCancel(booking)}
+                        className="px-4 py-2 rounded-lg border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                      >
+                        取消預約
+                      </button>
+                      {booking.calendarSyncStatus === "failed" && (
+                        <button
+                          onClick={() => handleResyncCalendar(booking)}
+                          disabled={resyncingId === (booking.bookingGroupId || booking.id)}
+                          className="px-4 py-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                        >
+                          {resyncingId === (booking.bookingGroupId || booking.id)
+                            ? "補同步中..."
+                            : "補同步行事曆"}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          setEditId(cardId);
+                          setNewDate(booking.date);
+                          setNewTime(booking.time);
+                        }}
+                        className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:opacity-90"
+                      >
+                        改期
+                      </button>
+                    </div>
+                  </details>
 
                   {editId === cardId && (
                     <div className="mt-4 p-4 bg-gray-100 rounded-lg space-y-3">
