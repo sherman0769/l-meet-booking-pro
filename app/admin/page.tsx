@@ -726,13 +726,21 @@ export default function AdminPage() {
   return (
     <main className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-5xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold">管理後台｜預約紀錄</h1>
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-3xl font-bold">管理後台｜預約紀錄</h1>
+              <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${oauthStatusBadgeClass}`}>
+                {oauthStatusBadgeText}
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-gray-500">今日營運、預約處理與行事曆同步狀態</p>
+          </div>
 
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex flex-wrap gap-2 sm:justify-end">
             <button
               onClick={() => router.push("/")}
-              className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300"
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
             >
               返回前台
             </button>
@@ -741,14 +749,14 @@ export default function AdminPage() {
               onClick={() => {
                 window.location.href = "/api/auth/google";
               }}
-              className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:opacity-90"
+              className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-700 hover:bg-orange-100"
             >
               重新授權行事曆
             </button>
 
             <button
               onClick={() => router.push("/admin/service-buffers")}
-              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:opacity-90"
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
             >
               服務緩衝設定
             </button>
@@ -756,12 +764,28 @@ export default function AdminPage() {
         </div>
 
         <div className="mb-6 rounded-xl border bg-white p-4 shadow">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
               <h2 className="text-lg font-bold">行事曆連線狀態</h2>
-              <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${oauthStatusBadgeClass}`}>
-                {oauthStatusBadgeText}
-              </span>
+              {oauthStatusLoading ? (
+                <p className="mt-2 text-sm text-gray-500">讀取中...</p>
+              ) : oauthStatus ? (
+                <p
+                  className={`mt-2 rounded-lg px-3 py-2 text-sm ${
+                    oauthStatusLevel === "healthy"
+                      ? "bg-green-50 text-green-800"
+                      : oauthStatusLevel === "watch"
+                        ? "bg-amber-50 text-amber-800"
+                        : oauthStatusLevel === "needs_action"
+                          ? "bg-orange-50 text-orange-800"
+                          : "bg-red-50 text-red-800"
+                  }`}
+                >
+                  {oauthStatusSummary}
+                </p>
+              ) : (
+                <p className="mt-2 text-sm text-red-600">讀取狀態失敗</p>
+              )}
             </div>
             <div className="text-right">
               <a
@@ -782,9 +806,7 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {oauthStatusLoading ? (
-            <p className="mt-3 text-sm text-gray-500">讀取中...</p>
-          ) : oauthStatus ? (
+          {!oauthStatusLoading && oauthStatus ? (
             <>
               {showImmediateActionAlert ? (
                 <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
@@ -799,178 +821,155 @@ export default function AdminPage() {
                   需要留意：目前有少量待同步任務，建議檢查待處理同步項目。
                 </div>
               ) : null}
-              <p
-                className={`mt-3 rounded-lg px-3 py-2 text-sm ${
-                  oauthStatusLevel === "healthy"
-                    ? "bg-green-50 text-green-800"
-                    : oauthStatusLevel === "watch"
-                      ? "bg-amber-50 text-amber-800"
-                      : oauthStatusLevel === "needs_action"
-                        ? "bg-orange-50 text-orange-800"
-                        : "bg-red-50 text-red-800"
-                }`}
-              >
-                {oauthStatusSummary}
-              </p>
-              <div className="mt-3 grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
-              <p>
-                <span className="font-semibold">連線狀態：</span>
-                {oauthStatus.connected ? "已連線" : "未連線"}
-              </p>
-              <p>
-                <span className="font-semibold">憑證來源：</span>
-                {credentialSourceLabel}
-              </p>
-              <p>
-                <span className="font-semibold">更新憑證：</span>
-                {oauthStatus.hasRefreshToken ? "存在" : "不存在"}
-              </p>
-              <p>
-                <span className="font-semibold">最後更新：</span>
-                {formatLastUpdatedAt(oauthStatus.lastUpdatedAt)}
-              </p>
-              <p>
-                <span className="font-semibold">需要重新授權：</span>
-                {oauthStatus.reauthRequired ? "是" : "否"}
-              </p>
-              <p>
-                <span className="font-semibold">待同步任務：</span>
-                <span
-                  className={
-                    oauthStatus.pendingSyncJobs > 0
-                      ? oauthStatusLevel === "needs_action"
-                        ? "inline-flex items-center gap-2 font-semibold text-orange-800"
-                        : "inline-flex items-center gap-2 font-semibold text-amber-800"
-                      : "text-gray-800"
-                  }
-                >
-                  {oauthStatus.pendingSyncJobs}
-                  {oauthStatus.pendingSyncJobs > 0 ? (
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[11px] leading-none ${
-                        oauthStatusLevel === "needs_action"
-                          ? "border border-orange-300 bg-orange-100"
-                          : "border border-amber-300 bg-amber-100"
-                      }`}
-                    >
-                      {oauthStatusLevel === "needs_action" ? "需處理" : "留意"}
-                    </span>
-                  ) : null}
-                </span>
-              </p>
-              <p>
-                <span className="font-semibold">狀態檢查：</span>
-                {formatLastUpdatedAt(oauthStatus.lastUpdatedAt)}
-              </p>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-sm md:grid-cols-3">
+                <div className="rounded-lg border bg-gray-50 px-3 py-2">
+                  <div className="text-xs text-gray-500">連線</div>
+                  <div className="font-semibold">{oauthStatus.connected ? "已連線" : "未連線"}</div>
+                </div>
+                <div className="rounded-lg border bg-gray-50 px-3 py-2">
+                  <div className="text-xs text-gray-500">待同步</div>
+                  <div className="font-semibold">{oauthStatus.pendingSyncJobs}</div>
+                </div>
+                <div className="rounded-lg border bg-gray-50 px-3 py-2">
+                  <div className="text-xs text-gray-500">最後更新</div>
+                  <div className="font-semibold">{formatLastUpdatedAt(oauthStatus.lastUpdatedAt)}</div>
+                </div>
               </div>
+
+              <details className="mt-3 text-sm text-gray-600">
+                <summary className="cursor-pointer select-none font-medium text-gray-700">連線細節</summary>
+                <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+                  <p>
+                    <span className="font-semibold">憑證來源：</span>
+                    {credentialSourceLabel}
+                  </p>
+                  <p>
+                    <span className="font-semibold">更新憑證：</span>
+                    {oauthStatus.hasRefreshToken ? "存在" : "不存在"}
+                  </p>
+                  <p>
+                    <span className="font-semibold">需要重新授權：</span>
+                    {oauthStatus.reauthRequired ? "是" : "否"}
+                  </p>
+                  <p>
+                    <span className="font-semibold">狀態檢查：</span>
+                    {formatLastUpdatedAt(oauthStatus.lastUpdatedAt)}
+                  </p>
+                </div>
+              </details>
             </>
-          ) : (
-            <p className="mt-3 text-sm text-red-600">讀取狀態失敗</p>
-          )}
+          ) : null}
         </div>
 
-        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
-          <div className="min-w-0">
-            <label className="block text-sm font-medium mb-1">篩選日期</label>
-            <input
-              type="date"
-              value={filterDate}
-              onChange={(e) => setFilterDate(e.target.value)}
-              className="border rounded-lg px-3 py-2 bg-white"
-            />
-            <div className="flex gap-2 mt-2">
-              <button
-                type="button"
-                onClick={() => setFilterDate(today)}
-                className="bg-blue-100 text-blue-800 px-3 py-1 rounded hover:bg-blue-200 text-xs"
-              >
-                今天
-              </button>
+        <div className="mb-6 rounded-xl border bg-white p-4 shadow-sm">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="min-w-0">
+              <label className="mb-1 block text-sm font-semibold text-gray-800">篩選日期</label>
+              <input
+                type="date"
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
+                className="w-full rounded-lg border bg-white px-3 py-2"
+              />
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFilterDate(today)}
+                  className="rounded bg-blue-100 px-3 py-1 text-xs text-blue-800 hover:bg-blue-200"
+                >
+                  今天
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setFilterDate(tomorrow)}
-                className="bg-blue-100 text-blue-800 px-3 py-1 rounded hover:bg-blue-200 text-xs"
-              >
-                明天
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterDate(tomorrow)}
+                  className="rounded bg-blue-100 px-3 py-1 text-xs text-blue-800 hover:bg-blue-200"
+                >
+                  明天
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setFilterDate("")}
-                className="bg-gray-200 text-gray-800 px-3 py-1 rounded hover:bg-gray-300 text-xs"
+                <button
+                  type="button"
+                  onClick={() => setFilterDate("")}
+                  className="rounded bg-gray-200 px-3 py-1 text-xs text-gray-800 hover:bg-gray-300"
+                >
+                  全部
+                </button>
+              </div>
+            </div>
+
+            <div className="min-w-0">
+              <label className="mb-1 block text-sm font-semibold text-gray-800">服務類型</label>
+              <select
+                value={filterService}
+                onChange={(e) => setFilterService(e.target.value)}
+                className="w-full rounded-lg border bg-white px-3 py-2"
               >
-                全部
-              </button>
+                <option value="">全部服務</option>
+                <option value="健身">健身</option>
+                <option value="AI課程">AI課程</option>
+                <option value="咨詢">咨詢</option>
+                <option value="顧問">顧問</option>
+              </select>
             </div>
           </div>
 
-          <div className="min-w-0">
-            <label className="block text-sm font-medium mb-1">服務類型</label>
-            <select
-              value={filterService}
-              onChange={(e) => setFilterService(e.target.value)}
-              className="border rounded-lg px-3 py-2 bg-white"
-            >
-              <option value="">全部服務</option>
-              <option value="健身">健身</option>
-              <option value="AI課程">AI課程</option>
-              <option value="咨詢">咨詢</option>
-              <option value="顧問">顧問</option>
-            </select>
-          </div>
+          <details className="mt-3 text-sm text-gray-600">
+            <summary className="cursor-pointer select-none font-medium text-gray-700">更多篩選</summary>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="min-w-0">
+                <label className="mb-1 block text-sm font-medium">搜尋</label>
+                <input
+                  type="text"
+                  value={searchKeyword}
+                  onChange={(e) => setSearchKeyword(e.target.value)}
+                  placeholder="姓名 / 電話 / LINE ID"
+                  className="w-full rounded-lg border bg-white px-3 py-2"
+                />
+              </div>
 
-          <div className="min-w-0">
-            <label className="block text-sm font-medium mb-1">搜尋</label>
-            <input
-              type="text"
-              value={searchKeyword}
-              onChange={(e) => setSearchKeyword(e.target.value)}
-              placeholder="姓名 / 電話 / LINE ID"
-              className="border rounded-lg px-3 py-2 bg-white"
-            />
-          </div>
+              <div className="min-w-0">
+                <label className="mb-1 block text-sm font-medium">同步狀態</label>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value as "all" | "failed")}
+                  className="w-full rounded-lg border bg-white px-3 py-2"
+                >
+                  <option value="all">全部</option>
+                  <option value="failed">同步失敗</option>
+                </select>
+              </div>
 
-          <div className="min-w-0">
-            <label className="block text-sm font-medium mb-1">同步狀態</label>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as "all" | "failed")}
-              className="border rounded-lg px-3 py-2 bg-white"
-            >
-              <option value="all">全部</option>
-              <option value="failed">同步失敗</option>
-            </select>
-          </div>
+              <div className="min-w-0">
+                <label className="mb-1 block text-sm font-medium">聯絡狀態</label>
+                <select
+                  value={filterContactStatus}
+                  onChange={(e) => setFilterContactStatus(e.target.value)}
+                  className="w-full rounded-lg border bg-white px-3 py-2"
+                >
+                  <option value="">全部聯絡狀態</option>
+                  <option value="未聯絡">未聯絡</option>
+                  <option value="已聯絡">已聯絡</option>
+                  <option value="已確認">已確認</option>
+                  <option value="已完成">已完成</option>
+                </select>
+              </div>
 
-          <div className="min-w-0">
-            <label className="block text-sm font-medium mb-1">聯絡狀態</label>
-            <select
-              value={filterContactStatus}
-              onChange={(e) => setFilterContactStatus(e.target.value)}
-              className="border rounded-lg px-3 py-2 bg-white"
-            >
-              <option value="">全部聯絡狀態</option>
-              <option value="未聯絡">未聯絡</option>
-              <option value="已聯絡">已聯絡</option>
-              <option value="已確認">已確認</option>
-              <option value="已完成">已完成</option>
-            </select>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              setFilterDate("");
-              setFilterService("");
-              setFilterStatus("all");
-              setFilterContactStatus("");
-              setSearchKeyword("");
-            }}
-            className="w-full self-end bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 sm:w-auto"
-          >
-            清除篩選
-          </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterDate("");
+                  setFilterService("");
+                  setFilterStatus("all");
+                  setFilterContactStatus("");
+                  setSearchKeyword("");
+                }}
+                className="w-full self-end rounded-lg bg-gray-200 px-4 py-2 text-gray-800 hover:bg-gray-300 sm:w-auto"
+              >
+                清除篩選
+              </button>
+            </div>
+          </details>
         </div>
 
         <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -994,88 +993,23 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <details className="mb-6 rounded-xl border bg-white p-4 text-sm text-gray-600 shadow-sm">
+        <details className="mb-6 rounded-xl border bg-white px-4 py-3 text-sm text-gray-600 shadow-sm">
           <summary className="cursor-pointer select-none font-semibold text-gray-800">
             其他統計
           </summary>
-          <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
-          <div className="rounded-lg border bg-gray-50 p-3">
-            <div className="text-xs text-gray-500">總堂數</div>
-            <div className="text-lg font-bold text-gray-900">{stats.totalLessons}</div>
-          </div>
-
-          <div className="rounded-lg border bg-gray-50 p-3">
-            <div className="text-xs text-gray-500">總占用格數</div>
-            <div className="text-lg font-bold text-gray-900">{stats.totalSlots}</div>
-          </div>
-
-          <div className="rounded-lg border bg-gray-50 p-3">
-            <div className="text-xs text-gray-500">健身</div>
-            <div className="text-lg font-bold text-gray-900">{stats.健身}</div>
-          </div>
-
-          <div className="rounded-lg border bg-gray-50 p-3">
-            <div className="text-xs text-gray-500">AI課程</div>
-            <div className="text-lg font-bold text-gray-900">{stats.AI課程}</div>
-          </div>
-
-          <div className="rounded-lg border bg-gray-50 p-3">
-            <div className="text-xs text-gray-500">咨詢</div>
-            <div className="text-lg font-bold text-gray-900">{stats.咨詢}</div>
-          </div>
-
-          <div className="rounded-lg border bg-gray-50 p-3">
-            <div className="text-xs text-gray-500">顧問</div>
-            <div className="text-lg font-bold text-gray-900">{stats.顧問}</div>
-          </div>
-
-          <div className="rounded-lg border bg-gray-50 p-3">
-            <div className="text-xs text-gray-500">未聯絡</div>
-            <div className="text-lg font-bold text-gray-900">{stats.未聯絡}</div>
-          </div>
-
-          <div className="rounded-lg border bg-gray-50 p-3">
-            <div className="text-xs text-gray-500">已聯絡</div>
-            <div className="text-lg font-bold text-gray-900">{stats.已聯絡}</div>
-          </div>
-
-          <div className="rounded-lg border bg-gray-50 p-3">
-            <div className="text-xs text-gray-500">已確認</div>
-            <div className="text-lg font-bold text-gray-900">{stats.已確認}</div>
-          </div>
-
-          <div className="rounded-lg border bg-gray-50 p-3">
-            <div className="text-xs text-gray-500">已完成</div>
-            <div className="text-lg font-bold text-gray-900">{stats.已完成}</div>
-          </div>
-
-          <div className="rounded-lg border bg-gray-50 p-3">
-            <div className="text-xs text-gray-500">同步失敗預約</div>
-            <div className="text-lg font-bold text-red-700">
-              {syncStats.failedBookingsCount}
-            </div>
-          </div>
-
-          <div className="rounded-lg border bg-gray-50 p-3">
-            <div className="text-xs text-gray-500">待同步項目</div>
-            <div className="text-lg font-bold text-amber-700">
-              {syncStats.pendingSyncJobsCount}
-            </div>
-          </div>
-
-          <div className="rounded-lg border bg-gray-50 p-3">
-            <div className="text-xs text-gray-500">待刪除同步項目</div>
-            <div className="text-lg font-bold text-orange-700">
-              {syncStats.pendingDeleteJobsCount}
-            </div>
-          </div>
-
-          <div className="rounded-lg border bg-gray-50 p-3">
-            <div className="text-xs text-gray-500">高重試次數項目</div>
-            <div className="text-lg font-bold text-purple-700">
-              {syncStats.highRetryJobsCount}
-            </div>
-          </div>
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm">
+            <span>總堂數 <strong className="text-gray-900">{stats.totalLessons}</strong></span>
+            <span>占用格數 <strong className="text-gray-900">{stats.totalSlots}</strong></span>
+            <span>健身 <strong className="text-gray-900">{stats.健身}</strong></span>
+            <span>AI課程 <strong className="text-gray-900">{stats.AI課程}</strong></span>
+            <span>咨詢 <strong className="text-gray-900">{stats.咨詢}</strong></span>
+            <span>顧問 <strong className="text-gray-900">{stats.顧問}</strong></span>
+            <span>未聯絡 <strong className="text-gray-900">{stats.未聯絡}</strong></span>
+            <span>已聯絡 <strong className="text-gray-900">{stats.已聯絡}</strong></span>
+            <span>已確認 <strong className="text-gray-900">{stats.已確認}</strong></span>
+            <span>已完成 <strong className="text-gray-900">{stats.已完成}</strong></span>
+            <span>待刪除同步 <strong className="text-orange-700">{syncStats.pendingDeleteJobsCount}</strong></span>
+            <span>高重試 <strong className="text-purple-700">{syncStats.highRetryJobsCount}</strong></span>
           </div>
         </details>
 
