@@ -45,10 +45,10 @@ export async function POST(request: Request) {
       eventId: response.data.id,
       htmlLink: response.data.htmlLink,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Calendar create error:", error);
 
-    const detail = error?.message || String(error);
+    const detail = error instanceof Error ? error.message : String(error)
     const isAuthError =
       detail.includes("invalid_grant") ||
       detail.includes("invalid_client") ||

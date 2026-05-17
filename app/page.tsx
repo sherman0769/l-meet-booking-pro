@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   collection,
@@ -103,6 +103,44 @@ const generateNextDays = (days: number) => {
   });
 };
 
+const generateHalfHourSlots = (start: string, end: string) => {
+  const result: string[] = [];
+
+  const toMinutes = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m;
+  };
+
+  const toTime = (mins: number) => {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  };
+
+  let current = toMinutes(start);
+  const endMin = toMinutes(end);
+
+  while (current <= endMin) {
+    result.push(toTime(current));
+    current += 30;
+  }
+
+  return result;
+};
+
+const baseSlots = generateHalfHourSlots("08:00", "20:30");
+const fitnessStartTimes = [
+  "08:00",
+  "09:30",
+  "11:00",
+  "13:30",
+  "15:00",
+  "16:30",
+  "18:00",
+  "19:30",
+];
+const generalStartTimes = baseSlots;
+
 const getAvailabilityStatus = (
   availableCount: number
 ): AvailabilityItem["status"] => {
@@ -164,7 +202,7 @@ export default function Home() {
     fetchBuffers();
   }, []);
 
-  const expandBusyToSlots = (
+  const expandBusyToSlots = useCallback((
     busy: { start: string; end: string }[],
     targetService: string
   ) => {
@@ -194,36 +232,9 @@ export default function Home() {
     }
 
     return slots;
-  };
+  }, [serviceBuffers]);
 
-  const generateHalfHourSlots = (start: string, end: string) => {
-    const result: string[] = [];
-  
-    const toMinutes = (t: string) => {
-      const [h, m] = t.split(":").map(Number);
-      return h * 60 + m;
-    };
-  
-    const toTime = (mins: number) => {
-      const h = Math.floor(mins / 60);
-      const m = mins % 60;
-      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-    };
-  
-    let current = toMinutes(start);
-    const endMin = toMinutes(end);
-  
-    while (current <= endMin) {
-      result.push(toTime(current));
-      current += 30;
-    }
-  
-    return result;
-  };
-
-  const baseSlots = generateHalfHourSlots("08:00", "20:30");
-
-  const fetchBusySlotsWithFailSafe = async ({
+  const fetchBusySlotsWithFailSafe = useCallback(async ({
     targetDate,
     targetService,
   }: {
@@ -250,20 +261,7 @@ export default function Home() {
       console.error("讀取 Calendar busy 失敗，啟用 fail-safe 全時段封鎖：", error);
       return [...baseSlots];
     }
-  };
-
-  const fitnessStartTimes = [
-    "08:00",
-    "09:30",
-    "11:00",
-    "13:30",
-    "15:00",
-    "16:30",
-    "18:00",
-    "19:30",
-  ];
-
-  const generalStartTimes = generateHalfHourSlots("08:00", "20:30");
+  }, [expandBusyToSlots]);
 
   const teachingStartTimes = service === "健身" ? fitnessStartTimes : generalStartTimes;
   const blockedTimes = [...new Set([...bookedTimes, ...calendarBusyTimes])];
@@ -383,7 +381,7 @@ export default function Home() {
     return sorted.slice(0, limit);
   };
 
-  const getSelectableTimesFor = async ({
+  const getSelectableTimesFor = useCallback(async ({
     targetService,
     targetDate,
     targetLessons,
@@ -424,7 +422,7 @@ export default function Home() {
 
       return requiredSlots.every((slot) => !blocked.includes(slot));
     });
-  };
+  }, [fetchBusySlotsWithFailSafe]);
 
   useEffect(() => {
     let cancelled = false;
@@ -478,7 +476,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [service, lessons]);
+  }, [service, lessons, getSelectableTimesFor]);
 
   const getNextDaysRecommendations = async ({
     service,
@@ -585,7 +583,7 @@ export default function Home() {
     };
 
     fetchBlockedTimes();
-  }, [date]);
+  }, [date, service, fetchBusySlotsWithFailSafe]);
 
   const handleSubmit = async () => {
     if (!name || !lineId || !phone || !date || !time) {
@@ -670,8 +668,6 @@ export default function Home() {
   const selectedAvailability = availability30Days.find((item) => item.date === date);
   const hasAvailabilityData = availability30Days.length > 0;
   const showInitialAvailabilityLoading = availabilityLoading && !hasAvailabilityData;
-  const isDevelopment = process.env.NODE_ENV !== "production";
-
   return (
     <main className="min-h-screen bg-gradient-to-b from-indigo-50 via-white to-purple-50 p-4 sm:p-6">
       <div className="mx-auto w-full max-w-md rounded-3xl border border-white/70 bg-white/85 p-4 shadow-xl shadow-indigo-100/70 backdrop-blur sm:p-6">

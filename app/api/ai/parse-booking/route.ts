@@ -53,36 +53,6 @@ type LLMParsedResult = {
   message?: string
 }
 
-const DEFAULT_PAYLOAD = (rawText: string): BookingIntentPayload => ({
-  success: false,
-  source: "rule",
-  message: "無法解析預約資訊",
-  rawText,
-
-  name: null,
-  lineId: null,
-  phone: null,
-  service: null,
-  date: null,
-  time: null,
-  lessons: null,
-
-  booking: {
-    serviceName: null,
-    date: null,
-    time: null,
-    durationMinutes: null,
-    sessions: null,
-    preferredTimeRange: null,
-    flexibilityMinutes: 0,
-    isReschedule: false,
-    targetBookingId: null,
-  },
-  missingFields: [],
-  needsRecommendation: false,
-  recommendationHints: [],
-})
-
 function normalizeDate(value: unknown): string | null {
   if (typeof value !== "string") return null
   const v = value.trim()
@@ -247,7 +217,7 @@ function parseDateText(rawText: string): string | null {
 function parseLessons(rawText: string): number | null {
   const text = rawText.replace(/\s+/g, "")
 
-  let match = text.match(/(\d+)節/)
+  const match = text.match(/(\d+)節/)
   if (match) return Number(match[1])
 
   if (text.includes("一節")) return 1
