@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createGoogleCalendarClient } from "@/lib/server/calendar-client";
+import { requireAdminSession } from "@/lib/server/admin-session";
 
 type BookingPayload = {
   name: string;
@@ -12,7 +13,13 @@ type BookingPayload = {
   lineId?: string;
 };
 
-export async function POST(request: Request) {
+// Deprecated: direct calendar write route kept for admin-only legacy checks.
+export async function POST(request: NextRequest) {
+  const unauthorized = requireAdminSession(request);
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   try {
     const body: BookingPayload = await request.json();
 

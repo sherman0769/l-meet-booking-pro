@@ -1,7 +1,29 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createGoogleCalendarClient } from "@/lib/server/calendar-client";
 
-export async function GET() {
+function isAuthorizedCalendarTestRequest(request: NextRequest) {
+  const expectedSecret = process.env.CRON_SECRET?.trim();
+  if (!expectedSecret) return false;
+
+  const authHeader = request.headers.get("authorization");
+  if (!authHeader?.startsWith("Bearer ")) return false;
+
+  const token = authHeader.slice("Bearer ".length).trim();
+  return token === expectedSecret;
+}
+
+export async function GET(request: NextRequest) {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { error: "Calendar test is not allowed in production" },
+      { status: 403 }
+    );
+  }
+
+  if (!isAuthorizedCalendarTestRequest(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { calendar, calendarId } = await createGoogleCalendarClient();
 
