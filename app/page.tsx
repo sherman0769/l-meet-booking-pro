@@ -188,7 +188,7 @@ export default function Home() {
   useEffect(() => {
     const fetchBuffers = async () => {
       try {
-        const res = await fetch("/api/admin/service-buffers");
+        const res = await fetch("/api/service-buffers");
         const data = await res.json();
 
         if (res.ok && data?.buffers) {
@@ -1282,3 +1282,4 @@ export default function Home() {
     </main>
   );
 }
+
